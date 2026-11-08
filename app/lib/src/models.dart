@@ -95,7 +95,6 @@ class AppUser {
 /// ビジネスユーザー（v1.5 の完成形に向けたプレビュー。店舗情報を持つ）
 class BusinessUser extends AppUser {
   final String storeType; // 例: '居酒屋'
-  final String promoNote; // 例: '雨天の日はとんこつ半額（クーポンは v1.5 で実装）'
 
   const BusinessUser({
     required super.id,
@@ -108,7 +107,6 @@ class BusinessUser extends AppUser {
     required super.lat,
     required super.lng,
     required this.storeType,
-    required this.promoNote,
   });
 
   @override

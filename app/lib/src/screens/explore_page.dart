@@ -102,8 +102,9 @@ class _ExplorePageState extends State<ExplorePage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'ビジネスユーザー（飲食店）が店舗を登録し、雨天・閑散時間帯に'
-                          '近くの飯とも候補へクーポンを配信できるようになります。\n'
+                          'ビジネスユーザー（飲食店）が店舗を登録し、'
+                          'AI接客・地図連携（マップ表示・Googleマップで開く）を'
+                          '有料で利用できるようになります。\n'
                           '一般ユーザーは無料で利用できます。',
                           style: theme.textTheme.bodySmall,
                         ),

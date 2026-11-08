@@ -7,6 +7,8 @@ import '../services/app_state.dart';
 import '../util/format.dart';
 import 'recruitment_create_sheet.dart';
 import 'recruitment_detail_screen.dart';
+import 'map_screen.dart';
+import 'store_sheet.dart';
 import 'user_detail_screen.dart';
 import 'widgets.dart';
 
@@ -204,93 +206,59 @@ class _NearPageState extends State<NearPage> {
     if (stores.isEmpty) {
       return const Center(child: Text('近くにビジネスユーザーがいません'));
     }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: stores.length,
-      itemBuilder: (context, i) {
-        final s = stores[i];
-        return Card(
-          child: ListTile(
-            leading: userAvatar(s.id, size: 48),
-            title: Text(s.nickname,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(
-              '${s.storeType} / ${appState.userDistanceLabel(s)}',
-            ),
-            trailing: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Text(
-                '営業だより',
-                style:
-                    TextStyle(fontSize: 11, color: Colors.orange.shade900),
-              ),
-            ),
-            onTap: () => _showStoreSheet(context, s),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showStoreSheet(BuildContext context, BusinessUser s) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                userAvatar(s.id, size: 56),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(s.nickname,
-                          style: Theme.of(sheetContext)
-                              .textTheme
-                              .titleMedium!
-                              .copyWith(fontWeight: FontWeight.bold)),
-                      Text(
-                          '${s.storeType} / ${appState.userDistanceLabel(s)}'),
-                    ],
-                  ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('近くの店をマップで見る'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const MapScreen(),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(s.bio),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('営業だより（クーポンは v1.5 で実装予定）',
-                      style: Theme.of(sheetContext).textTheme.labelSmall),
-                  const SizedBox(height: 4),
-                  Text(s.promoNote),
-                ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: stores.length,
+            itemBuilder: (context, i) {
+              final s = stores[i];
+              return Card(
+                child: ListTile(
+                  leading: userAvatar(s.id, size: 48),
+                  title: Text(s.nickname,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                    '${s.storeType} / ${appState.userDistanceLabel(s)}',
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border:
+                          Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Text(
+                      'AI接客対応店',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.orange.shade900),
+                    ),
+                  ),
+                  onTap: () => showStoreSheet(context, s),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

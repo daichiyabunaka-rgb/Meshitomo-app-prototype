@@ -102,13 +102,6 @@ class MyPage extends StatelessWidget {
                         value: true,
                         onChanged: null, // v1 では固定 ON（本開発で設定反映）
                       ),
-                      SwitchListTile(
-                        secondary: const Icon(Icons.storefront),
-                        title: const Text('近くの店からのお知らせ'),
-                        subtitle: const Text('v1.5 で提供されるクーポン受信設定'),
-                        value: false,
-                        onChanged: null,
-                      ),
                     ],
                   ),
                 ),

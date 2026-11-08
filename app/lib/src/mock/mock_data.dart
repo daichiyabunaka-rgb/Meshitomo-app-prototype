@@ -116,13 +116,12 @@ class _BusinessSpec {
   final String nickname;
   final String iconCategoryId;
   final String storeType;
-  final String promoNote;
   final String bio;
   final double northKm;
   final double eastKm;
 
   const _BusinessSpec(this.id, this.nickname, this.iconCategoryId,
-      this.storeType, this.promoNote, this.bio, this.northKm, this.eastKm);
+      this.storeType, this.bio, this.northKm, this.eastKm);
 }
 
 const List<_BusinessSpec> _businessSpecs = [
@@ -131,7 +130,6 @@ const List<_BusinessSpec> _businessSpecs = [
     '居酒屋 のれん',
     'izakaya',
     '居酒屋',
-    '雨天の日は煮込み半額（クーポン配信は v1.5 で実装）',
     '常連さんが集まる小さな居酒屋。ひとり飲みも大歓迎。',
     0.8,
     0.9,
@@ -141,17 +139,15 @@ const List<_BusinessSpec> _businessSpecs = [
     'ラーメン二番',
     'ramen',
     'ラーメン店',
-    '平日15〜17時のごはん大盛り無料（デモ）',
     'とんこつと背脂が看板。気負わず食べられる一杯を。',
     -0.5,
     1.1,
   ),
   _BusinessSpec(
-    'b-yakinaku-hanamichi',
+    'b-yakiniku-hanamichi',
     '焼肉 はなみち',
     'yakiniku',
     '焼肉店',
-    '2名以上でハラミサービス（デモ）',
     '煙で顔が見えない距離感も、ときには大事。',
     1.5,
     -0.6,
@@ -161,7 +157,6 @@ const List<_BusinessSpec> _businessSpecs = [
     'カフェ・ド・モーニング',
     'cafe',
     'カフェ',
-    'モーニングセットが11時まで（デモ）',
     '読書する人、勉強する人、ぼんやりする人、全員ウェルカム。',
     -1.4,
     -0.8,
@@ -201,7 +196,6 @@ BusinessUser _specToBusiness(
     lat: anchorLat + s.northKm / _kmPerDegLat,
     lng: anchorLng + s.eastKm / (_kmPerDegLat * cos),
     storeType: s.storeType,
-    promoNote: s.promoNote,
   );
 }
 

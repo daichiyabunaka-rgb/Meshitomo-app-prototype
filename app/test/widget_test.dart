@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meshitomo/main.dart';
 import 'package:meshitomo/src/models.dart';
+import 'package:meshitomo/src/services/ai_concierge.dart';
 import 'package:meshitomo/src/services/app_state.dart';
 import 'package:meshitomo/src/services/auth_service.dart';
 import 'package:meshitomo/src/util/format.dart';
@@ -110,6 +111,49 @@ void main() {
       expect(user, isNotNull);
       expect(user!.nickname, '花子');
       expect(user.lat, 35.0);
+    });
+  });
+
+  group('AiConcierge（AI接客デモ）', () {
+    final me = AppUser(
+      id: 'me',
+      nickname: '太郎',
+      decade: '30代',
+      gender: 'male',
+      iconCategoryId: 'ramen',
+      interestIds: const ['ramen'],
+      bio: 'テスト',
+      lat: 35.0,
+      lng: 139.0,
+    );
+    final store = BusinessUser(
+      id: 'b-ramen-niban',
+      nickname: 'ラーメン二番',
+      decade: '経営者',
+      gender: 'undisclosed',
+      iconCategoryId: 'ramen',
+      interestIds: const [],
+      bio: 'デモ店舗',
+      lat: 35.0,
+      lng: 139.0,
+      storeType: 'ラーメン店',
+    );
+
+    test('挨拶はユーザーの興味を踏まえて案内する', () {
+      final g = aiConcierge.greeting(me, store);
+      expect(g, contains('太郎'));
+      expect(g, contains('ラーメン'));
+      expect(g, contains('とんこつ背脂'));
+    });
+
+    test('キーワードに応じた応答をする（おすすめ/席/予約/Business unknown）',
+        () {
+      final ai = aiConcierge;
+      expect(ai.reply('おすすめは？', me, store), contains('とんこつ'));
+      expect(ai.reply('席が空いてる？', me, store), contains('カウンター'));
+      expect(ai.reply('予約したいです', me, store), contains('19時'));
+      // どのキーワードにも当てはまらない場合は案内を返す
+      expect(ai.reply('こんにちは', me, store), contains('おすすめ'));
     });
   });
 
