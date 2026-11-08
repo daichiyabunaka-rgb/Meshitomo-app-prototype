@@ -1,11 +1,36 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../services/app_state.dart';
 
-/// 趣味アイコンのアバター（顔画像は使わない設計 FR-1-3）
+/// 趣味アイコンのアバター。
+/// 投稿画像（料理写真など）があればそれを表示し、なければ趣味アイコンセットに
+/// フォールバックする。顔画像は不可（FR-1-3、AI審査は本開発で実装）。
 Widget userAvatar(String userId, {double size = 44, double iconScale = 0.5}) {
   final user = appState.userById(userId);
+  final imagePath = user.iconImagePath;
+  if (imagePath != null && imagePath.isNotEmpty) {
+    final file = File(imagePath);
+    if (file.existsSync()) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: ClipOval(
+          child: Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _fallbackIcon(user, size, iconScale),
+          ),
+        ),
+      );
+    }
+  }
+  return _fallbackIcon(user, size, iconScale);
+}
+
+Widget _fallbackIcon(AppUser user, double size, double iconScale) {
   final cat = categoryById(user.iconCategoryId);
   return Container(
     width: size,

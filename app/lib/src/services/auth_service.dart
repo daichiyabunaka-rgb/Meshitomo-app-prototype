@@ -58,6 +58,7 @@ class AuthService extends ChangeNotifier {
     required String iconCategoryId,
     required List<String> interestIds,
     required String bio,
+    String? iconImagePath,
   }) {
     final key = email.trim().toLowerCase();
     if (_exists(key)) {
@@ -73,6 +74,7 @@ class AuthService extends ChangeNotifier {
       iconCategoryId: iconCategoryId,
       interestIds: interestIds,
       bio: bio,
+      iconImagePath: iconImagePath,
     );
     _accounts[key] = acc;
     _sessionEmail = key;
@@ -99,6 +101,35 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// ユーザープロフィールの更新（ログイン中アカウント。アイコン画像も含む）
+  void updateCurrentProfile({
+    String? nickname,
+    String? decade,
+    String? gender,
+    String? iconCategoryId,
+    List<String>? interestIds,
+    String? bio,
+    String? iconImagePath,
+  }) {
+    final email = _sessionEmail;
+    if (email == null) return;
+    final old = _accounts[email]!;
+    _accounts[email] = _Account(
+      id: old.id,
+      email: old.email,
+      passwordHash: old.passwordHash,
+      nickname: nickname ?? old.nickname,
+      decade: decade ?? old.decade,
+      gender: gender ?? old.gender,
+      iconCategoryId: iconCategoryId ?? old.iconCategoryId,
+      interestIds: interestIds ?? old.interestIds,
+      bio: bio ?? old.bio,
+      iconImagePath: iconImagePath ?? old.iconImagePath,
+    );
+    _persist();
+    notifyListeners();
+  }
+
   /// セッション中のユーザーのプロフィールを AppUser に変換して返す
   AppUser? buildSessionUser({
     required double lat,
@@ -118,6 +149,7 @@ class AuthService extends ChangeNotifier {
       bio: acc.bio,
       lat: lat,
       lng: lng,
+      iconImagePath: acc.iconImagePath,
     );
   }
 
@@ -158,6 +190,7 @@ class _Account {
   final String iconCategoryId;
   final List<String> interestIds;
   final String bio;
+  final String? iconImagePath;
 
   _Account({
     required this.id,
@@ -169,6 +202,7 @@ class _Account {
     required this.iconCategoryId,
     required this.interestIds,
     required this.bio,
+    this.iconImagePath,
   });
 
   Map<String, dynamic> toJson() => {
@@ -181,6 +215,7 @@ class _Account {
         'iconCategoryId': iconCategoryId,
         'interestIds': interestIds,
         'bio': bio,
+        'iconImagePath': iconImagePath,
       };
 
   factory _Account.fromJson(Map<String, dynamic> j) => _Account(
@@ -193,6 +228,7 @@ class _Account {
         iconCategoryId: j['iconCategoryId'] as String,
         interestIds: (j['interestIds'] as List).cast<String>(),
         bio: j['bio'] as String,
+        iconImagePath: j['iconImagePath'] as String?,
       );
 }
 

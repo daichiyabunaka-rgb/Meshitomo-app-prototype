@@ -66,6 +66,7 @@ class AppUser {
   final String decade; // 例: '20代'
   final String gender; // 'male' | 'female' | 'undisclosed'
   final String iconCategoryId; // 趣味アイコン（顔画像は禁止）
+  final String? iconImagePath; // 端末内に保存した投稿アイコン画像（あれば優先表示）
   final List<String> interestIds;
   final String bio;
   final double lat;
@@ -81,6 +82,7 @@ class AppUser {
     required this.bio,
     required this.lat,
     required this.lng,
+    this.iconImagePath,
   });
 
   String get genderLabel => const {'male': '男性', 'female': '女性'}.containsKey(gender)

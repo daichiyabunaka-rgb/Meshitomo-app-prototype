@@ -93,6 +93,7 @@ class AppState extends ChangeNotifier {
         bio: old.bio,
         lat: lat,
         lng: lng,
+        iconImagePath: old.iconImagePath,
       );
       _users[me!.id] = me!;
     }
@@ -128,6 +129,7 @@ class AppState extends ChangeNotifier {
     required String iconCategoryId,
     required List<String> interestIds,
     required String bio,
+    String? iconImagePath,
   }) {
     final old = me!;
     me = AppUser(
@@ -140,6 +142,7 @@ class AppState extends ChangeNotifier {
       bio: bio,
       lat: old.lat,
       lng: old.lng,
+      iconImagePath: iconImagePath,
     );
     _users[me!.id] = me!;
     notifyListeners();

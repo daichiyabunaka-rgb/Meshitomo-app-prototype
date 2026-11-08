@@ -181,6 +181,23 @@ void main() {
       expect(state.myRooms, isEmpty);
     });
 
+    test('投稿アイコン画像は GPS・プロフィール更新でも保持される', () {
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      state.updateProfile(
+        nickname: 'テスト太郎',
+        decade: '30代',
+        gender: 'male',
+        iconCategoryId: 'ramen',
+        interestIds: const ['ramen'],
+        bio: 'テスト',
+        iconImagePath: '/data/user/0/app/icons/icon_1.jpg',
+      );
+      expect(state.me!.iconImagePath, isNotEmpty);
+      state.applyGps(43.0, 141.0);
+      expect(state.me!.iconImagePath, isNotEmpty);
+    });
+
     test('DM: 同一相手との部屋は再利用され、違う相手は別の部屋になる', () {
       final state = AppState();
       state.attachUser(_testUser(state), reseed: true);

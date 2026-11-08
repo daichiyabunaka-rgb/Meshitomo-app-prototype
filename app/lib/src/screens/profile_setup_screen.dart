@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models.dart';
 import '../services/app_state.dart';
 import '../services/auth_service.dart';
+import '../services/icon_service.dart';
 import '../services/location_service.dart';
 
 const List<String> decades = ['18〜19歳', '20代', '30代', '40代', '50代以上'];
@@ -34,6 +38,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   late String _gender;
   late String _iconCategory;
   late final Set<String> _interests;
+  // アイコン画像（投稿）。null=未選択（既定の趣味アイコンを使う）, ''=解除
+  String? _iconImagePath;
   bool _submitting = false;
 
   @override
@@ -46,6 +52,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _gender = e?.gender ?? 'undisclosed';
     _iconCategory = e?.iconCategoryId ?? 'ramen';
     _interests = <String>{...?e?.interestIds};
+    _iconImagePath = (e?.iconImagePath?.isNotEmpty ?? false)
+        ? e!.iconImagePath
+        : null;
   }
 
   @override
@@ -60,11 +69,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       _interests.isNotEmpty &&
       _iconCategory.isNotEmpty;
 
+  Future<void> _pickImage(ImageSource source) async {
+    final path = await iconService.pickAndSave(source);
+    if (path != null) {
+      setState(() => _iconImagePath = path);
+    }
+  }
+
   Future<void> _submit() async {
     if (!_isValid || _submitting) return;
     setState(() => _submitting = true);
     final nickname = _nickname.text.trim();
     final bio = _bio.text.trim();
+    final imagePath =
+        (_iconImagePath == null || _iconImagePath!.isEmpty) ? null : _iconImagePath;
 
     if (widget.existing == null) {
       // 会員登録（この時点でアカウント作成 + 自動ログイン + 位置情報取得）
@@ -82,6 +100,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           iconCategoryId: _iconCategory,
           interestIds: _interests.toList(),
           bio: bio,
+          iconImagePath: imagePath,
         );
         final user = authService.buildSessionUser(
           lat: gps?.$1 ?? appState.anchorLat,
@@ -103,6 +122,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         return;
       }
     } else {
+      authService.updateCurrentProfile(
+        iconImagePath: _iconImagePath, // null=変更なし, ''=解除, パス=新画像
+      );
       appState.updateProfile(
         nickname: nickname,
         decade: _decade,
@@ -110,6 +132,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         iconCategoryId: _iconCategory,
         interestIds: _interests.toList(),
         bio: bio,
+        iconImagePath: _iconImagePath,
       );
     }
     if (mounted) {
@@ -172,12 +195,49 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             onSelectionChanged: (s) => setState(() => _gender = s.first),
           ),
           const SizedBox(height: 16),
-          Text('趣味アイコン（顔写真は使えません）', style: theme.textTheme.titleSmall),
+          Text('アイコン', style: theme.textTheme.titleSmall),
           const SizedBox(height: 4),
           Text(
-            '食べ物・店・風景など、趣味に関係する画像をアイコンにします。ここではアイコンセットから選びます。',
+            '料理や店の写真など、趣味に関係する画像を投稿できます。'
+            '顔が写った画像は使用できません（本開発では AI 審査で自動拒否します）。',
             style: theme.textTheme.bodySmall,
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _iconPreview(theme),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _pickImage(ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('ギャラリーから'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _pickImage(ImageSource.camera),
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      label: const Text('カメラで撮影'),
+                    ),
+                    if (_iconImagePath != null &&
+                        _iconImagePath!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => _iconImagePath = ''),
+                        child: const Text('画像をやめて趣味アイコンに戻す'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text('画像がない場合の趣味アイコン', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           SizedBox(
             height: 96,
@@ -266,6 +326,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  Widget _iconPreview(ThemeData theme) {
+    final cat = categoryById(_iconCategory);
+    Widget preview;
+    if (_iconImagePath != null && _iconImagePath!.isNotEmpty) {
+      final f = File(_iconImagePath!);
+      preview = f.existsSync()
+          ? ClipOval(
+              child: Image.file(f, width: 88, height: 88, fit: BoxFit.cover))
+          : Icon(cat.icon, size: 40, color: theme.colorScheme.primary);
+    } else {
+      preview = Icon(cat.icon, size: 40, color: theme.colorScheme.primary);
+    }
+    return Container(
+      width: 88,
+      height: 88,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: theme.colorScheme.primaryContainer,
+      ),
+      child: Center(child: preview),
     );
   }
 }
