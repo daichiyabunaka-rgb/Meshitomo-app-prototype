@@ -139,11 +139,28 @@ void main() {
       storeType: 'ラーメン店',
     );
 
-    test('挨拶はユーザーの興味を踏まえて案内する', () {
+    test('挨拶は店舗の口調とユーザーの興味を踏まえて案内する', () {
       final g = aiConcierge.greeting(me, store);
+      expect(g, contains('ようこそ')); // ラーメン店の口調
       expect(g, contains('太郎'));
       expect(g, contains('ラーメン'));
       expect(g, contains('とんこつ背脂'));
+    });
+
+    test('口調は店舗タイプごとに変わる', () {
+      final izakaya = BusinessUser(
+        id: 'b-izakaya-noren',
+        nickname: '居酒屋 のれん',
+        decade: '経営者',
+        gender: 'undisclosed',
+        iconCategoryId: 'izakaya',
+        interestIds: const [],
+        bio: 'デモ店舗',
+        lat: 35.0,
+        lng: 139.0,
+        storeType: '居酒屋',
+      );
+      expect(aiConcierge.greeting(me, izakaya), contains('お疲れさん'));
     });
 
     test('キーワードに応じた応答をする（おすすめ/席/予約/Business unknown）',

@@ -4,19 +4,33 @@ import '../models.dart';
 /// 本開発では LLM API に置き換える。このロジックは店舗業態と
 /// ユーザーの興味カテゴリから_recommend を選ぶ最低限のルールベース。
 class AiConcierge {
-  /// 最初の挨拶（ユーザーの興味を踏まえて$promptする）
+  /// 最初の挨拶（店舗の口調 + ユーザーの興味を踏まえる）
   String greeting(AppUser me, BusinessUser store) {
     final interest = me.interestIds.isNotEmpty ? me.interestIds.first : null;
-    final label = interest == null
-        ? null
-        : _categoryLabel(interest);
-    final base = '${me.nickname}さん、いらっしゃいませ。'
-        '${store.nickname}（${store.storeType}）のAI接客です。';
+    final label = interest == null ? null : _categoryLabel(interest);
+    final base = '${_opener(store)}'
+        '${me.nickname}さん、${store.nickname}（${store.storeType}）のAI接客です。';
     if (label == null) {
       return '$base 何か聞きたいことがあればどうぞ。';
     }
     return '$base $labelがお好みなんですね。'
         'うちの${_recommend(store)}がおすすめです。';
+  }
+
+  /// 店舗タイプごとの口調（本開発では LLM に店舗キャラ設定を渡して生成する）
+  String _opener(BusinessUser store) {
+    switch (store.storeType) {
+      case '居酒屋':
+        return 'いらっしゃい、今日もお疲れさんでした。';
+      case 'ラーメン店':
+        return 'ようこそ。旨い一杯でお待ちしてます。';
+      case '焼肉店':
+        return 'いらっしゃいませ！お肉、今が一番いい状態です。';
+      case 'カフェ':
+        return 'こんにちは。ごゆっくりどうぞ。';
+      default:
+        return 'いらっしゃいませ。';
+    }
   }
 
   /// ユーザー発話への応答
