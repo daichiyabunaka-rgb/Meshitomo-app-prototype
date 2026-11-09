@@ -57,7 +57,7 @@ Future<void> showInviteSheet(BuildContext context) {
                   try {
                     await SharePlus.instance.share(
                       ShareParams(
-                        title: 'めしとも',
+                        title: '飯とも！',
                         text: text,
                       ),
                     );

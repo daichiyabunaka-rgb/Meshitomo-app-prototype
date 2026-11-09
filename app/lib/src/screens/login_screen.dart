@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Icon(Icons.restaurant_menu,
                     size: 64, color: theme.colorScheme.primary),
                 const SizedBox(height: 12),
-                Text('めしとも',
+                Text('飯とも！',
                     style: theme.textTheme.headlineLarge!
                         .copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),

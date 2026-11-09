@@ -1,4 +1,4 @@
--- めしとも Supabase スキーマ（v1.5 バックエンド設計）
+-- 飯とも！ Supabase スキーマ（v1.5 バックエンド設計）
 -- 使い方: Supabase プロジェクトを作成し、SQL Editor でこのファイルを実行する。
 -- その後、アプリ側で supabase_flutter を導入し、モックサービス
 -- (AuthService / AppState のデータ層) を Supabase 実装に差し替える。

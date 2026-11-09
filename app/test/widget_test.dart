@@ -331,7 +331,7 @@ void main() {
 
   testWidgets('未ログインではログイン画面が出る', (tester) async {
     await tester.pumpWidget(const MeshitomoApp());
-    expect(find.text('めしとも'), findsOneWidget);
+    expect(find.text('飯とも！'), findsOneWidget);
     expect(find.text('ログイン'), findsWidgets);
     expect(find.text('はじめての方は会員登録へ'), findsOneWidget);
     expect(find.text('会員登録'), findsNothing);
