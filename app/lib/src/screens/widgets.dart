@@ -7,11 +7,27 @@ import '../services/app_state.dart';
 
 /// 趣味アイコンのアバター。
 /// 投稿画像（料理写真など）があればそれを表示し、なければ趣味アイコンセットに
-/// フォールバックする。顔画像は不可（FR-1-3、AI審査は本開発で実装）。
+/// フォールバックする。投稿画像は端末内パス（モック）または
+/// Supabase Storage の公開URL（URLは network 経由で表示）。
+/// 顔画像は不可（FR-1-3、AI審査は本開発で実装）。
 Widget userAvatar(String userId, {double size = 44, double iconScale = 0.5}) {
   final user = appState.userById(userId);
   final imagePath = user.iconImagePath;
   if (imagePath != null && imagePath.isNotEmpty) {
+    if (imagePath.startsWith('http')) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: ClipOval(
+          child: Image.network(
+            imagePath,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) =>
+                _fallbackIcon(user, size, iconScale),
+          ),
+        ),
+      );
+    }
     final file = File(imagePath);
     if (file.existsSync()) {
       return SizedBox(

@@ -1,12 +1,17 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'app_config.dart';
 
 /// アイコン画像の取得と保存。
-/// ギャラリー/カメラから選んだ画像をアプリ専用領域にコピーして永続化する
-/// （image_picker の一時ファイルは消えることがあるため）。
-/// 本開発では Supabase Storage へのアップロードに置き換える。
+/// - モックモード: ギャラリー/カメラの画像をアプリ専用領域にコピーして永続化
+/// - Supabase モード: さらに Storage の公開バケット `icons/<uuid>/` へ
+///   アップロードし、公開URLを返す（これにより他のユーザーにもアイコン画像が見える）
+/// アップロードに失敗した場合は端末内パスにフォールバックする。
 class IconService {
   Future<String?> pickAndSave(ImageSource source) async {
     final picker = ImagePicker();
@@ -26,6 +31,29 @@ class IconService {
     final dest =
         '${iconsDir.path}${Platform.pathSeparator}icon_$ts.jpg';
     File(picked.path).copySync(dest);
+
+    if (AppConfig.useSupabase) {
+      try {
+        final client = Supabase.instance.client;
+        final uid = client.auth.currentUser?.id;
+        if (uid != null) {
+          final bytes = File(dest).readAsBytesSync();
+          final remotePath = '$uid/icon_$ts.jpg';
+          await client.storage.from('icons').uploadBinary(
+                remotePath,
+                bytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              );
+          return client.storage.from('icons').getPublicUrl(remotePath);
+        }
+      } catch (e) {
+        // アップロード失敗時は端末内パスで続行（デバッグ用に記録のみ）
+        debugPrint('icon upload failed: $e');
+      }
+    }
     return dest;
   }
 }

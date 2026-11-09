@@ -442,8 +442,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Widget _iconPreview(ThemeData theme) {
     final cat = categoryById(_iconCategory);
     Widget preview;
-    if (_iconImagePath != null && _iconImagePath!.isNotEmpty) {
-      final f = File(_iconImagePath!);
+    final path = _iconImagePath ?? '';
+    if (path.startsWith('http')) {
+      preview = ClipOval(
+        child: Image.network(
+          path,
+          width: 88,
+          height: 88,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              Icon(cat.icon, size: 40, color: theme.colorScheme.primary),
+        ),
+      );
+    } else if (path.isNotEmpty) {
+      final f = File(path);
       preview = f.existsSync()
           ? ClipOval(
               child: Image.file(f, width: 88, height: 88, fit: BoxFit.cover))
