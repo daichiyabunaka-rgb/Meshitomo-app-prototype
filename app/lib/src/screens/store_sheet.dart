@@ -6,6 +6,7 @@ import '../services/app_config.dart';
 import '../services/app_state.dart';
 import 'ai_concierge_screen.dart';
 import 'chat_screen.dart';
+import 'community_detail_screen.dart';
 import 'map_screen.dart';
 import 'widgets.dart';
 
@@ -145,6 +146,31 @@ Future<void> showStoreSheet(BuildContext context, BusinessUser store) {
                 },
               ),
             ),
+            Builder(builder: (_) {
+              final fan = appState.fanCommunityOfStore(store.nickname);
+              if (fan == null) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.groups_outlined),
+                    label: Text('ファンコミュニティ「${fan.name}」を見る'),
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => CommunityDetailScreen(
+                              communityId: fan.id),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            }),
             const SizedBox(height: 8),
             Row(
               children: [

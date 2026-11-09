@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'communities_page.dart';
 import 'explore_page.dart';
 import 'my_page.dart';
 import 'near_page.dart';
 import 'rooms_page.dart';
 
-/// ホーム: 仕様書 8 章のタブ構成（近く / 部屋 / 探す / マイページ）
+/// ホーム: 近く / 部屋 / コミュニティ / 探す / マイページ（仕様書 8 章参照）
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -24,6 +25,7 @@ class _HomeShellState extends State<HomeShell> {
         children: const [
           NearPage(),
           RoomsPage(),
+          CommunitiesPage(),
           ExplorePage(),
           MyPage(),
         ],
@@ -41,6 +43,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.chat_bubble_outline),
             selectedIcon: Icon(Icons.chat_bubble),
             label: '部屋',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups),
+            label: 'コミュニティ',
           ),
           NavigationDestination(
             icon: Icon(Icons.search),

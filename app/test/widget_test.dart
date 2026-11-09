@@ -300,6 +300,66 @@ void main() {
       expect(state.myRooms.where((r) => r.isDm), hasLength(2));
       expect(state.lastMessageOf(dm1.id), isNotEmpty); // system メッセージ
     });
+
+    test('コミュニティ: モックでは参加中シードがあり、参加すると部屋ができる',
+        () async {
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      expect(state.communities, isNotEmpty);
+      final target =
+          state.communities.firstWhere((c) => !c.memberIds.contains('me'));
+      final before = state.myRooms.length;
+      await state.joinCommunity(target.id);
+      expect(state.myCommunities.map((c) => c.id), contains(target.id));
+      expect(state.myRooms.length, before + 1);
+      final room = state.myRooms
+          .firstWhere((r) => r.communityId == target.id);
+      expect(room.isCommunity, isTrue);
+      // コミュニティチャットに投稿できる
+      await state.sendCommunityMessage(target.id, 'こんにちは');
+      expect(state.lastMessageOf(room.id), contains('こんにちは'));
+    });
+
+    test('コミュニティ作成とイベント企画（誰でも作成できる）', () async {
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      final created = await state.createCommunity(
+        name: 'テスト同好会',
+        description: 'テスト用',
+        linkedStore: null,
+      );
+      expect(created.memberIds, contains('me'));
+      // 作成者は自動で参加し、チャット部屋ができている
+      expect(state.myRooms.where((r) => r.communityId == created.id),
+          isNotEmpty);
+      final event = await state.createEvent(
+        communityId: created.id,
+        title: 'テストオフ会',
+        body: '',
+        eventTime: '来週土曜',
+        locationName: '駅前',
+        capacity: 3,
+      );
+      final stored = state.eventsOf(created.id);
+      expect(stored, hasLength(1));
+      expect(stored.first.id, event.id);
+      expect(stored.first.participantIds, contains('me')); // 主催は自動参加
+    });
+
+    test('イベントへの参加・取消ができる', () async {
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      // シード済みコミュニティ（自分未参加の c-ramen）のイベントへ参加する
+      final community =
+          state.communities.firstWhere((c) => c.id == 'c-ramen');
+      final target = state.eventsOf(community.id).first;
+      await state.joinEvent(target.id);
+      expect(state.eventsOf(community.id).first.participantIds,
+          contains('me'));
+      await state.leaveEvent(target.id);
+      expect(state.eventsOf(community.id).first.participantIds,
+          isNot(contains('me')));
+    });
   });
 
   group('models', () {

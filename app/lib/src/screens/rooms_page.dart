@@ -66,6 +66,11 @@ class _RoomsPageState extends State<RoomsPage> {
                   leadingId = otherId;
                   title =
                       '${appState.userById(otherId).nickname}（DM）';
+                } else if (room.isCommunity) {
+                  final community =
+                      appState.communityById(room.communityId ?? '');
+                  leadingId = community?.ownerId ?? room.memberIds.first;
+                  title = community?.name ?? 'コミュニティ';
                 } else {
                   final rec = appState.recruitmentById(room.recruitmentId)!;
                   leadingId = rec.hostId;

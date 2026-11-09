@@ -388,3 +388,215 @@ class SupabaseData {
 
 /// グローバルインスタンス
 final SupabaseData supabaseData = SupabaseData();
+
+extension CommunityData on SupabaseData {
+  // ------------------------------------------------------------ community
+
+  /// 1人のプロフィールを取得（コミュニティオーナー等の補完に使う）
+  Future<AppUser?> fetchProfileById(String id) async {
+    final rows = await _c.from('profiles').select().eq('id', id).limit(1);
+    final list = rows as List;
+    if (list.isEmpty) return null;
+    return _rowToUser(Map<String, dynamic>.from(list.first as Map));
+  }
+
+  /// コミュニティ一覧（参加メンバーの id も一緒に取得）
+  Future<List<Community>> fetchCommunities() async {
+    final rows = await _c
+        .from('communities')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(50);
+    final list = <Community>[];
+    final ids = <String>[];
+    for (final row in (rows as List)) {
+      final m = Map<String, dynamic>.from(row as Map);
+      ids.add(m['id'] as String);
+      list.add(Community(
+        id: m['id'] as String,
+        ownerId: m['owner_id'] as String,
+        name: m['name'] as String,
+        description: (m['description'] as String?) ?? '',
+        linkedStore: m['linked_store'] as String?,
+        createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+        memberIds: <String>{},
+      ));
+    }
+    if (ids.isEmpty) return list;
+    final memberRows = await _c
+        .from('community_members')
+        .select('community_id, user_id')
+        .inFilter('community_id', ids);
+    for (final r in (memberRows as List)) {
+      final m = Map<String, dynamic>.from(r as Map);
+      for (final c in list) {
+        if (c.id == m['community_id']) {
+          c.memberIds.add(m['user_id'] as String);
+        }
+      }
+    }
+    return list;
+  }
+
+  Future<Community> createCommunity({
+    required String name,
+    required String description,
+    String? linkedStore,
+  }) async {
+    final rows = await _c.from('communities').insert({
+      'owner_id': _myId,
+      'name': name,
+      'description': description,
+      'linked_store': linkedStore,
+    }).select();
+    final m = Map<String, dynamic>.from((rows as List).first as Map);
+    return Community(
+      id: m['id'] as String,
+      ownerId: _myId,
+      name: name,
+      description: description,
+      linkedStore: linkedStore,
+      createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+      memberIds: {_myId},
+    );
+  }
+
+  Future<void> joinCommunity(String communityId) async {
+    await _c.from('community_members')
+        .upsert({'community_id': communityId, 'user_id': _myId});
+    await _joinCommunityRoom(communityId);
+  }
+
+  /// コミュニティのチャット部屋（chat_rooms を流用）。参加時に作る
+  Future<String> _joinCommunityRoom(String communityId) async {
+    final existing = await _c
+        .from('chat_rooms')
+        .select()
+        .eq('community_id', communityId)
+        .limit(1);
+    if ((existing as List).isNotEmpty) {
+      final roomId =
+          Map<String, dynamic>.from(existing.first as Map)['id'] as String;
+      await _c.from('chat_room_members')
+          .upsert({'room_id': roomId, 'user_id': _myId});
+      return roomId;
+    }
+    final created = await _c.from('chat_rooms').insert({
+      'community_id': communityId,
+      'type': 'community',
+    }).select();
+    final roomId =
+        Map<String, dynamic>.from((created as List).first as Map)['id']
+            as String;
+    await _c.from('chat_room_members')
+        .upsert({'room_id': roomId, 'user_id': _myId});
+    return roomId;
+  }
+
+  Future<void> leaveCommunity(String communityId) async {
+    await _c.from('community_members')
+        .delete()
+        .eq('community_id', communityId)
+        .eq('user_id', _myId);
+    final rooms = await _c
+        .from('chat_rooms')
+        .select('id')
+        .eq('community_id', communityId)
+        .limit(1);
+    if ((rooms as List).isNotEmpty) {
+      final roomId = Map<String, dynamic>.from(rooms.first as Map)['id']
+          as String;
+      await _c.from('chat_room_members')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('user_id', _myId);
+    }
+  }
+
+  // ------------------------------------------------------------ events
+
+  Future<List<CommunityEvent>> fetchEvents(String communityId) async {
+    final rows = await _c
+        .from('events')
+        .select()
+        .eq('community_id', communityId)
+        .order('created_at')
+        .limit(50);
+    final list = <CommunityEvent>[];
+    final ids = <String>[];
+    for (final row in (rows as List)) {
+      final m = Map<String, dynamic>.from(row as Map);
+      ids.add(m['id'] as String);
+      list.add(CommunityEvent(
+        id: m['id'] as String,
+        communityId: communityId,
+        hostId: m['host_id'] as String,
+        title: m['title'] as String,
+        body: (m['body'] as String?) ?? '',
+        eventTime: (m['event_time'] as String?) ?? '',
+        locationName: (m['location_name'] as String?) ?? '',
+        capacity: (m['capacity'] as int?) ?? 20,
+        createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+        participantIds: <String>{},
+      ));
+    }
+    if (ids.isEmpty) return list;
+    final parts = await _c
+        .from('event_participants')
+        .select('event_id, user_id')
+        .inFilter('event_id', ids);
+    for (final r in (parts as List)) {
+      final m = Map<String, dynamic>.from(r as Map);
+      for (final e in list) {
+        if (e.id == m['event_id']) {
+          e.participantIds.add(m['user_id'] as String);
+        }
+      }
+    }
+    return list;
+  }
+
+  Future<CommunityEvent> createEvent({
+    required String communityId,
+    required String title,
+    required String body,
+    required String eventTime,
+    required String locationName,
+    required int capacity,
+  }) async {
+    final rows = await _c.from('events').insert({
+      'community_id': communityId,
+      'host_id': _myId,
+      'title': title,
+      'body': body,
+      'event_time': eventTime,
+      'location_name': locationName,
+      'capacity': capacity,
+    }).select();
+    final m = Map<String, dynamic>.from((rows as List).first as Map);
+    return CommunityEvent(
+      id: m['id'] as String,
+      communityId: communityId,
+      hostId: _myId,
+      title: title,
+      body: body,
+      eventTime: eventTime,
+      locationName: locationName,
+      capacity: capacity,
+      createdAt: DateTime.parse(m['created_at'] as String).toLocal(),
+      participantIds: {_myId},
+    );
+  }
+
+  Future<void> joinEvent(String eventId) async {
+    await _c.from('event_participants')
+        .upsert({'event_id': eventId, 'user_id': _myId});
+  }
+
+  Future<void> leaveEvent(String eventId) async {
+    await _c.from('event_participants')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('user_id', _myId);
+  }
+}

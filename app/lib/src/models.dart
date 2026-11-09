@@ -225,10 +225,11 @@ class JoinApplication {
 
 class ChatRoom {
   final String id;
-  final String recruitmentId; // DM の場合は空文字
+  final String recruitmentId; // DM・コミュニティの場合は空文字
   final List<String> memberIds;
   final DateTime createdAt;
-  final String type; // 'group'（募集から生成） | 'dm'（1:1）
+  final String type; // 'group' | 'dm' | 'community'
+  final String? communityId; // コミュニティチャットの場合
 
   ChatRoom({
     required this.id,
@@ -236,9 +237,94 @@ class ChatRoom {
     required this.memberIds,
     required this.createdAt,
     this.type = 'group',
+    this.communityId,
   });
 
   bool get isDm => type == 'dm';
+
+  bool get isCommunity => type == 'community';
+}
+
+/// コミュニティ（クラブ・イベント企画・店舗のファンコミュニティ）。
+/// 誰でも作成でき、参加するとコミュニティチャットが開ける（FR-6-1〜6-3）。
+class Community {
+  final String id;
+  final String ownerId;
+  final String name;
+  final String description;
+  final String? linkedStore; // 店舗ファンコミュニティの場合の店舗名
+  final DateTime createdAt;
+  final Set<String> memberIds;
+
+  Community({
+    required this.id,
+    required this.ownerId,
+    required this.name,
+    required this.description,
+    required this.linkedStore,
+    required this.createdAt,
+    required this.memberIds,
+  });
+
+  Community copyWith({
+    Set<String>? memberIds,
+    String? name,
+    String? description,
+  }) {
+    return Community(
+      id: id,
+      ownerId: ownerId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      linkedStore: linkedStore,
+      createdAt: createdAt,
+      memberIds: memberIds ?? this.memberIds,
+    );
+  }
+}
+
+/// コミュニティ内で企画されるイベント・クラブ
+class CommunityEvent {
+  final String id;
+  final String communityId;
+  final String hostId;
+  final String title;
+  final String body;
+  final String eventTime; // ベータでは自由記述（例: '3/14 19:00〜'）
+  final String locationName;
+  final int capacity;
+  final DateTime createdAt;
+  final Set<String> participantIds;
+
+  CommunityEvent({
+    required this.id,
+    required this.communityId,
+    required this.hostId,
+    required this.title,
+    required this.body,
+    required this.eventTime,
+    required this.locationName,
+    required this.capacity,
+    required this.createdAt,
+    required this.participantIds,
+  });
+
+  bool get isFull => participantIds.length >= capacity;
+
+  CommunityEvent copyWith({Set<String>? participantIds}) {
+    return CommunityEvent(
+      id: id,
+      communityId: communityId,
+      hostId: hostId,
+      title: title,
+      body: body,
+      eventTime: eventTime,
+      locationName: locationName,
+      capacity: capacity,
+      createdAt: createdAt,
+      participantIds: participantIds ?? this.participantIds,
+    );
+  }
 }
 
 class ChatMessage {

@@ -24,6 +24,8 @@ class AppState extends ChangeNotifier {
   final List<ChatRoom> _rooms = [];
   final Map<String, List<ChatMessage>> _messages = {};
   final Map<String, int> unreadByRoom = {};
+  final Map<String, List<CommunityEvent>> _eventsByCommunity = {};
+  final List<Community> _communities = [];
 
   int _seq = 1;
   bool _closed = false;
@@ -107,6 +109,7 @@ class AppState extends ChangeNotifier {
     if (_remote) {
       // Supabase モード: モックのシードは作らず実データを引きに行く
       unawaited(refreshFromRemote());
+      unawaited(refreshCommunities());
       _seeded = true;
     } else if (reseed || !_seeded) {
       _recruitments.clear();
@@ -114,6 +117,7 @@ class AppState extends ChangeNotifier {
           .where((u) => u.id != me!.id && !u.isBusiness)
           .toList()));
       _seeded = true;
+      _seedMockCommunities();
     }
     notifyListeners();
   }
@@ -192,6 +196,7 @@ class AppState extends ChangeNotifier {
           _messages.putIfAbsent(room.id, () => []);
         }
       }
+      unawaited(refreshCommunities());
       notifyListeners();
     } catch (_) {
       // ベータ: 通信エラーは画面を壊さず無視（次の更新で再試行）
@@ -210,6 +215,380 @@ class AppState extends ChangeNotifier {
     } catch (_) {
       // 無視
     }
+  }
+
+  // ------------------------------------------------------------ community
+
+  List<Community> get communities => List.unmodifiable(_communities);
+
+  Community? communityById(String id) {
+    for (final c in _communities) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  List<CommunityEvent> eventsOf(String communityId) {
+    return List.unmodifiable(_eventsByCommunity[communityId] ?? const []);
+  }
+
+  /// 参加中のコミュニティ
+  List<Community> get myCommunities {
+    if (me == null) return const [];
+    return _communities
+        .where((c) => c.memberIds.contains(me!.id))
+        .toList();
+  }
+
+  /// 店舗シートから飛べる「ファンコミュニティ」を探す
+  Community? fanCommunityOfStore(String storeName) {
+    for (final c in _communities) {
+      if (c.linkedStore == storeName) return c;
+    }
+    return null;
+  }
+
+  void _seedMockCommunities() {
+    if (_communities.isNotEmpty) return;
+    final now = _now();
+    _communities.addAll([
+      Community(
+        id: 'c-ramen',
+        ownerId: 'u-ramen-ken',
+        name: 'ラーメン部',
+        description: '週1で開拓ラーメン会。初心者歓迎。スープの話をしよう。',
+        linkedStore: null,
+        createdAt: now.subtract(const Duration(days: 12)),
+        memberIds: {'u-ramen-ken', 'u-spicy-tan', 'u-sushi-masa'},
+      ),
+      Community(
+        id: 'c-noren',
+        ownerId: 'b-izakaya-noren',
+        name: 'のれん常連会',
+        description: '居酒屋 のれん のファンコミュニティ。新作おつまみの試食会もやります。',
+        linkedStore: '居酒屋 のれん',
+        createdAt: now.subtract(const Duration(days: 8)),
+        memberIds: {'b-izakaya-noren', 'u-izakaya-ryo', 'u-yakiniku-mi'},
+      ),
+      Community(
+        id: 'c-sweets',
+        ownerId: 'u-sweets-hana',
+        name: '甘いものクラブ',
+        description: 'スイーツ写真を交換する会。月1でパンケーキオフ。',
+        linkedStore: null,
+        createdAt: now.subtract(const Duration(days: 3)),
+        memberIds: {'u-sweets-hana', 'u-cafe-yam'},
+      ),
+    ]);
+    _eventsByCommunity['c-ramen'] = [
+      CommunityEvent(
+        id: 'e-ramen-1',
+        communityId: 'c-ramen',
+        hostId: 'u-ramen-ken',
+        title: '第4回 開拓ラーメン会',
+        body: '今月は駅西側の新店2軒をはしごします。',
+        eventTime: '今週土曜 18:00〜',
+        locationName: '駅北口 集合',
+        capacity: 6,
+        createdAt: now.subtract(const Duration(days: 2)),
+        participantIds: {'u-ramen-ken', 'u-spicy-tan'},
+      ),
+    ];
+    _eventsByCommunity['c-noren'] = [
+      CommunityEvent(
+        id: 'e-noren-1',
+        communityId: 'c-noren',
+        hostId: 'b-izakaya-noren',
+        title: '新作おつまみ試食会',
+        body: '常連さん限定で新作3品を試食いただきます。感想で名前を決めます。',
+        eventTime: '来週金曜 19:00〜',
+        locationName: '居酒屋 のれん',
+        capacity: 10,
+        createdAt: now.subtract(const Duration(days: 1)),
+        participantIds: {'b-izakaya-noren'},
+      ),
+    ];
+  }
+
+  /// コミュニティ一覧の取得（ログイン時と引き更新で呼ぶ）
+  Future<void> refreshCommunities() async {
+    if (me == null) return;
+    if (_remote) {
+      try {
+        final list = await supabaseData.fetchCommunities();
+        // オーナー情報を補完
+        for (final c in list) {
+          if (!_users.containsKey(c.ownerId)) {
+            try {
+              final owner = await supabaseData.fetchProfileById(c.ownerId);
+              if (owner != null) _users[c.ownerId] = owner;
+            } catch (_) {
+              // 無視
+            }
+          }
+        }
+        _communities
+          ..clear()
+          ..addAll(list);
+        // 参加中コミュニティのイベントを取得
+        for (final c in myCommunities) {
+          final events = await supabaseData.fetchEvents(c.id);
+          _eventsByCommunity[c.id] = events;
+        }
+        notifyListeners();
+      } catch (_) {
+        // 無視
+      }
+      return;
+    }
+    _seedMockCommunities();
+    notifyListeners();
+  }
+
+  /// コミュニティ作成（誰でも可。ビジネスは自分の店舗のファンコミュニティ化も）
+  Future<Community> createCommunity({
+    required String name,
+    required String description,
+    String? linkedStore,
+  }) async {
+    if (_remote) {
+      final c = await supabaseData.createCommunity(
+        name: name,
+        description: description,
+        linkedStore: linkedStore,
+      );
+      // 自分を参加させておく（チャットも始まる）
+      await supabaseData.joinCommunity(c.id);
+      _communities.insert(0, c.copyWith(memberIds: {me!.id}));
+      _ensureCommunityRoom(c.id);
+      notifyListeners();
+      return c;
+    }
+    final c = Community(
+      id: 'c-${_seq++}',
+      ownerId: me!.id,
+      name: name,
+      description: description,
+      linkedStore: linkedStore,
+      createdAt: _now(),
+      memberIds: {me!.id},
+    );
+    _communities.insert(0, c);
+    _ensureCommunityRoom(c.id);
+    notifyListeners();
+    return c;
+  }
+
+  void _ensureCommunityRoom(String communityId) {
+    final exists = _rooms.any((r) => r.communityId == communityId);
+    if (exists) return;
+    final room = ChatRoom(
+      id: 'croom-$communityId',
+      recruitmentId: '',
+      memberIds: [me!.id],
+      createdAt: _now(),
+      type: 'community',
+      communityId: communityId,
+    );
+    _rooms.insert(0, room);
+    _messages.putIfAbsent(room.id, () => []);
+  }
+
+  /// コミュニティ参加（チャット部屋にjoinする）
+  Future<void> joinCommunity(String communityId) async {
+    final idx = _communities.indexWhere((c) => c.id == communityId);
+    if (idx < 0) return;
+    final c = _communities[idx];
+    if (c.memberIds.contains(me!.id)) return;
+    _communities[idx] = c.copyWith(memberIds: {...c.memberIds, me!.id});
+    // チャット部屋: 無ければ作り、メンバーに加える
+    var room = _rooms.cast<ChatRoom?>().firstWhere(
+          (r) => r!.communityId == communityId,
+          orElse: () => null,
+        );
+    if (room == null) {
+      room = ChatRoom(
+        id: 'croom-$communityId',
+        recruitmentId: '',
+        memberIds: [me!.id],
+        createdAt: _now(),
+        type: 'community',
+        communityId: communityId,
+      );
+      _rooms.insert(0, room);
+    } else if (!room.memberIds.contains(me!.id)) {
+      final rIdx = _rooms.indexOf(room);
+      _rooms[rIdx] = ChatRoom(
+        id: room.id,
+        recruitmentId: room.recruitmentId,
+        memberIds: [...room.memberIds, me!.id],
+        createdAt: room.createdAt,
+        type: room.type,
+        communityId: room.communityId,
+      );
+    }
+    _messages.putIfAbsent(room.id, () => []);
+    // イベントも取得（Supabase）/ モックならシード済み
+    if (!_eventsByCommunity.containsKey(communityId)) {
+      if (_remote) {
+        final events = await supabaseData.fetchEvents(communityId);
+        _eventsByCommunity[communityId] = events;
+      } else {
+        _eventsByCommunity.putIfAbsent(communityId, () => []);
+      }
+    }
+    if (_remote) {
+      await supabaseData.joinCommunity(communityId);
+    }
+    notifyListeners();
+  }
+
+  /// コミュニティ脱退（チャットからも抜ける）
+  Future<void> leaveCommunity(String communityId) async {
+    final idx = _communities.indexWhere((c) => c.id == communityId);
+    if (idx < 0) return;
+    final c = _communities[idx];
+    if (!c.memberIds.contains(me!.id)) return;
+    final newMembers = {...c.memberIds}..remove(me!.id);
+    _communities[idx] = c.copyWith(memberIds: newMembers);
+    final roomIdx = _rooms.indexWhere((r) => r.communityId == communityId);
+    if (roomIdx >= 0) {
+      final room = _rooms[roomIdx];
+      final newRoomMembers = [...room.memberIds]..remove(me!.id);
+      if (newRoomMembers.isEmpty) {
+        _rooms.removeAt(roomIdx);
+        _messages.remove(room.id);
+      } else {
+        _rooms[roomIdx] = ChatRoom(
+          id: room.id,
+          recruitmentId: room.recruitmentId,
+          memberIds: newRoomMembers,
+          createdAt: room.createdAt,
+          type: room.type,
+          communityId: room.communityId,
+        );
+      }
+    }
+    if (_remote) {
+      await supabaseData.leaveCommunity(communityId);
+    }
+    notifyListeners();
+  }
+
+  String communityRoomId(String communityId) {
+    return 'croom-$communityId';
+  }
+
+  /// コミュニティ用のメッセージ投稿（既存の sendMessage を流用）
+  Future<void> sendCommunityMessage(String communityId, String body) async {
+    final roomId = communityRoomId(communityId);
+    final realId = _rooms
+        .cast<ChatRoom?>()
+        .firstWhere((r) => r!.communityId == communityId,
+            orElse: () => null)
+        ?.id;
+    final target = realId ?? roomId;
+    // 既存の sendMessage を使う（Supabase 書き込みも含む）
+    sendMessage(target, body);
+    if (!_remote) {
+      // モック: 他の参加者が反応する（デモ）
+      final c = communityById(communityId);
+      if (c != null) {
+        final others =
+            c.memberIds.where((id) => id != me!.id).toList();
+        if (others.isNotEmpty) {
+          _fakeDelay(const Duration(seconds: 3), () {
+            _postMessage(target,
+                senderId: others.first,
+                body: mockReplies[_seq % mockReplies.length]);
+            unreadByRoom[target] = (unreadByRoom[target] ?? 0) + 1;
+            notifyListeners();
+          });
+        }
+      }
+    }
+  }
+
+  /// イベント・クラブの企画（参加者なら誰でも）
+  Future<CommunityEvent> createEvent({
+    required String communityId,
+    required String title,
+    required String body,
+    required String eventTime,
+    required String locationName,
+    required int capacity,
+  }) async {
+    if (_remote) {
+      final e = await supabaseData.createEvent(
+        communityId: communityId,
+        title: title,
+        body: body,
+        eventTime: eventTime,
+        locationName: locationName,
+        capacity: capacity,
+      );
+      _eventsByCommunity.putIfAbsent(communityId, () => []);
+      _eventsByCommunity[communityId]!.add(e);
+      notifyListeners();
+      return e;
+    }
+    final e = CommunityEvent(
+      id: 'e-${_seq++}',
+      communityId: communityId,
+      hostId: me!.id,
+      title: title,
+      body: body,
+      eventTime: eventTime,
+      locationName: locationName,
+      capacity: capacity,
+      createdAt: _now(),
+      participantIds: {me!.id},
+    );
+    _eventsByCommunity.putIfAbsent(communityId, () => []);
+    _eventsByCommunity[communityId]!.insert(0, e);
+    notifyListeners();
+    return e;
+  }
+
+  Future<void> joinEvent(String eventId) async {
+    bool touched = false;
+    for (final entry in _eventsByCommunity.entries) {
+      final list = entry.value;
+      for (var i = 0; i < list.length; i++) {
+        final e = list[i];
+        if (e.id == eventId && !e.participantIds.contains(me!.id)) {
+          if (e.isFull) return;
+          list[i] = e.copyWith(
+              participantIds: {...e.participantIds, me!.id});
+          touched = true;
+          break;
+        }
+      }
+    }
+    if (touched && _remote) {
+      await supabaseData.joinEvent(eventId);
+    }
+    if (touched) notifyListeners();
+  }
+
+  Future<void> leaveEvent(String eventId) async {
+    bool touched = false;
+    for (final entry in _eventsByCommunity.entries) {
+      final list = entry.value;
+      for (var i = 0; i < list.length; i++) {
+        final e = list[i];
+        if (e.id == eventId && e.participantIds.contains(me!.id)) {
+          final p = {...e.participantIds}..remove(me!.id);
+          list[i] = e.copyWith(participantIds: p);
+          touched = true;
+          break;
+        }
+      }
+    }
+    if (touched && _remote) {
+      await supabaseData.leaveEvent(eventId);
+    }
+    if (touched) notifyListeners();
   }
   void updateProfile({
     required String nickname,
