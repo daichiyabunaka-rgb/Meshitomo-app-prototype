@@ -217,6 +217,19 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// リアルタイム着信（Supabase Realtime の INSERT から呼ばれる）。
+  /// 重複チェックをして、自分以外の送信なら未読を増やす。
+  void handleIncomingMessage(String roomId, ChatMessage message) {
+    _messages.putIfAbsent(roomId, () => []);
+    final exists = _messages[roomId]!.any((m) => m.id == message.id);
+    if (exists) return;
+    _messages[roomId]!.add(message);
+    if (message.senderId != me?.id && !message.isSystem) {
+      unreadByRoom[roomId] = (unreadByRoom[roomId] ?? 0) + 1;
+    }
+    notifyListeners();
+  }
+
   // ------------------------------------------------------------ community
 
   List<Community> get communities => List.unmodifiable(_communities);

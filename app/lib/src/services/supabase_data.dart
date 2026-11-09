@@ -12,6 +12,46 @@ class SupabaseData {
 
   String get _myId => _c.auth.currentUser!.id;
 
+  ChatMessage _rowToMessage(String roomId, Map<String, dynamic> row) {
+    return ChatMessage(
+      id: row['id'] as String,
+      roomId: roomId,
+      senderId: row['sender_id'] as String,
+      body: row['body'] as String,
+      sentAt: DateTime.parse(row['sent_at'] as String).toLocal(),
+      isSystem: (row['is_system'] as bool?) ?? false,
+    );
+  }
+
+  /// 部屋のメッセージ着信をリアルタイム受信する（Supabase Realtime）。
+  /// 戻り値のチャネルは呼び出し側で dispose 時に removeChannel すること。
+  RealtimeChannel subscribeRoomMessages({
+    required String roomId,
+    required void Function(ChatMessage) onMessage,
+  }) {
+    return _c
+        .channel('room-messages-$roomId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'chat_messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'room_id',
+            value: roomId,
+          ),
+          callback: (payload) {
+            try {
+              final row = Map<String, dynamic>.from(payload.newRecord);
+              onMessage(_rowToMessage(roomId, row));
+            } catch (_) {
+              // 壊れたペイロードは無視
+            }
+          },
+        )
+        .subscribe();
+  }
+
   // ---------------------------------------------------------- profiles
 
   Future<void> updateMyLocation(double lat, double lng) async {

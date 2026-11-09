@@ -301,6 +301,29 @@ void main() {
       expect(state.lastMessageOf(dm1.id), isNotEmpty); // system メッセージ
     });
 
+    test('リアルタイム着信は重複せず、他人のメッセージは未読が増える',
+        () async {
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      final other = state.generalUsers.first;
+      final room = await state.getOrCreateDm(other.id);
+      final before = state.unreadByRoom[room.id] ?? 0;
+      final msg = ChatMessage(
+        id: 'incoming-1',
+        roomId: room.id,
+        senderId: other.id,
+        body: 'こんにちは',
+        sentAt: DateTime.now(),
+      );
+      state.handleIncomingMessage(room.id, msg);
+      state.handleIncomingMessage(room.id, msg); // 重複着信
+      expect(
+          state.messagesOf(room.id)
+              .where((m) => m.id == 'incoming-1'),
+          hasLength(1));
+      expect(state.unreadByRoom[room.id], before + 1);
+    });
+
     test('コミュニティ: モックでは参加中シードがあり、参加すると部屋ができる',
         () async {
       final state = AppState();

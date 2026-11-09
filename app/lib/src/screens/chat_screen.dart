@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models.dart';
+import '../services/app_config.dart';
 import '../services/app_state.dart';
+import '../services/supabase_data.dart';
 import 'widgets.dart';
 
 /// グループチャット（FR-3-3, FR-3-5）。プロトタイプでは絵文字スタンプのみ。
@@ -18,29 +21,47 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   Timer? _ticker;
+  dynamic _realtimeChannel; // Supabase モードでのリアルタイム受信
+  int _tick = 0;
 
   @override
   void initState() {
     super.initState();
     appState.markRoomRead(widget.roomId);
-    // Supabase モード: 既存メッセージを取りに行く
+    // Supabase モード: 既存メッセージ取得 + リアルタイム受信
     unawaited(appState.reloadRoomMessages(widget.roomId));
+    if (AppConfig.useSupabase) {
+      _realtimeChannel = supabaseData.subscribeRoomMessages(
+        roomId: widget.roomId,
+        onMessage: (message) {
+          appState.handleIncomingMessage(widget.roomId, message);
+          // 開いている間は未読にしない
+          appState.markRoomRead(widget.roomId);
+        },
+      );
+    }
     _ticker = Timer.periodic(Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {});
-      // 5回に1回（5秒ごと）実データを引き直す（Supabase モード）
+      // 5回に1回（5秒ごと）実データを引き直す（リアルタイム未接続時の保険）
       _tick++;
-      if (_tick % 5 == 0) {
+      if (_tick % 20 == 0) {
         unawaited(appState.reloadRoomMessages(widget.roomId));
       }
     });
   }
 
-  int _tick = 0;
-
   @override
   void dispose() {
     _ticker?.cancel();
+    if (_realtimeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(
+            _realtimeChannel as RealtimeChannel);
+      } catch (_) {
+        // アプリ終了時などは無視
+      }
+    }
     super.dispose();
   }
 
