@@ -134,7 +134,7 @@ class _RecruitmentDetailScreenState extends State<RecruitmentDetailScreen> {
                         runSpacing: 4,
                         children: [
                           for (final id in host.interestIds)
-                            interestLabel(categoryById(id)),
+                            interestLabel(appState.categoryOf(id)),
                         ],
                       ),
                       const SizedBox(height: 8),

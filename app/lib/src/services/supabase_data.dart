@@ -432,6 +432,36 @@ final SupabaseData supabaseData = SupabaseData();
 extension CommunityData on SupabaseData {
   // ------------------------------------------------------------ community
 
+  /// ユーザー追加のカテゴリ一覧（全ユーザーに共有される）
+  Future<List<InterestCategory>> fetchCategories() async {
+    final rows = await _c
+        .from('categories')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(200);
+    return (rows as List).map((r) {
+      final m = Map<String, dynamic>.from(r as Map);
+      return InterestCategory(
+        m['id'] as String,
+        m['label'] as String,
+        categoryIconByName(m['icon'] as String?),
+      );
+    }).toList();
+  }
+
+  Future<void> createCategory({
+    required String id,
+    required String label,
+    required String icon,
+  }) async {
+    await _c.from('categories').insert({
+      'id': id,
+      'label': label,
+      'icon': icon,
+      'created_by': _myId,
+    });
+  }
+
   /// 1人のプロフィールを取得（コミュニティオーナー等の補完に使う）
   Future<AppUser?> fetchProfileById(String id) async {
     final rows = await _c.from('profiles').select().eq('id', id).limit(1);

@@ -383,6 +383,27 @@ void main() {
       expect(state.eventsOf(community.id).first.participantIds,
           isNot(contains('me')));
     });
+
+    test('興味カテゴリをユーザーが自由に追加できる（重複名は拒否）', () async {
+      SharedPreferences.setMockInitialValues({});
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      // attachUser 内で loadCategories が走る
+      final before = state.categories.length;
+      final created =
+          await state.addCategory(label: '珈琲巡り', iconName: 'coffee');
+      expect(created, isNotNull);
+      expect(state.categories.length, before + 1);
+      expect(state.categories.any((c) => c.label == '珈琲巡り'), isTrue);
+      // 未知のIDはフォールバック表示（例外にならない）
+      final unknown = state.categoryOf('made-on-other-device');
+      expect(unknown.label, 'made-on-other-device');
+      // 同名カテゴリは拒否される
+      final dup =
+          await state.addCategory(label: '珈琲巡り', iconName: 'restaurant');
+      expect(dup, isNull);
+      expect(state.categories.length, before + 1);
+    });
   });
 
   group('models', () {

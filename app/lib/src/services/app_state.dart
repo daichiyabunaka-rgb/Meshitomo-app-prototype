@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../mock/mock_data.dart';
 import '../models.dart';
@@ -31,8 +33,115 @@ class AppState extends ChangeNotifier {
   bool _closed = false;
   bool _seeded = false;
   bool _remoteBusy = false;
+  final List<InterestCategory> _categories =
+      List.of(interestCategories);
 
   bool get _remote => AppConfig.useSupabase;
+
+  // ------------------------------------------------------------ categories
+
+  static const _kCustomCategories = 'meshitomo_custom_categories';
+
+  /// 興味カテゴリ一覧（デフォルト + ユーザー追加分）
+  List<InterestCategory> get categories => List.unmodifiable(_categories);
+
+  /// IDからカテゴリを引く。未知の ID（他端末で作成など）は
+  /// 名前をそのまま表示に使うフォールバックを返す（例外にしない）。
+  InterestCategory categoryOf(String id) {
+    for (final c in _categories) {
+      if (c.id == id) return c;
+    }
+    return InterestCategory(id, id, categoryIconByName(null));
+  }
+
+  /// ユーザーがカテゴリを追加する（Supabase モードでは全ユーザーに共有）。
+  /// 同じ名前のカテゴリは作れない。メモリに先行追加してから永続化することで
+  /// 並行して走る loadCategories との二重追加を防ぐ。
+  Future<InterestCategory?> addCategory(
+      {required String label, required String iconName}) async {
+    final trimmed = label.trim();
+    if (trimmed.isEmpty) return null;
+    final exists = _categories.any((c) => c.label == trimmed);
+    if (exists) return null;
+    final id = 'cat-${DateTime.now().microsecondsSinceEpoch}';
+    final category = InterestCategory(
+        id, trimmed, categoryIconByName(iconName));
+    _categories.add(category);
+    notifyListeners();
+    if (_remote) {
+      try {
+        await supabaseData.createCategory(
+            id: id, label: trimmed, icon: iconName);
+      } catch (_) {
+        // DB登録できない場合はロールバック（他端末で表示できないため）
+        _categories.remove(category);
+        notifyListeners();
+        return null;
+      }
+    } else {
+      // モック: 端末内に永続化
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getStringList(_kCustomCategories) ?? [];
+        saved.add(jsonEncode({
+          'id': id,
+          'label': trimmed,
+          'icon': iconName,
+        }));
+        await prefs.setStringList(_kCustomCategories, saved);
+      } catch (_) {
+        // 保存失敗でもメモリには残す（このセッション内では使える）
+      }
+    }
+    return category;
+  }
+
+  /// ログイン時にカテゴリを復元/取得する
+  Future<void> loadCategories() async {
+    if (_remote) {
+      await refreshCategoriesFromRemote();
+      return;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_kCustomCategories) ?? [];
+      for (final json in saved) {
+        try {
+          final m = jsonDecode(json) as Map<String, dynamic>;
+          final label = m['label'] as String;
+          if (_categories.any((c) => c.label == label)) continue;
+          _categories.add(InterestCategory(
+            m['id'] as String,
+            label,
+            categoryIconByName(m['icon'] as String?),
+          ));
+        } catch (_) {
+          // 壊れたレコードは読み飛ばす
+        }
+      }
+    } catch (_) {
+      // 無視
+    }
+  }
+
+  Future<void> refreshCategoriesFromRemote() async {
+    if (!_remote) return;
+    try {
+      final customs = await supabaseData.fetchCategories();
+      // デフォルト + DBのカスタムカテゴリ（ラベル重複は排除）
+      _categories
+        ..clear()
+        ..addAll(interestCategories);
+      for (final c in customs) {
+        if (!_categories.any((x) => x.label == c.label)) {
+          _categories.add(c);
+        }
+      }
+      notifyListeners();
+    } catch (_) {
+      // 無視
+    }
+  }
 
   AppState() {
     _rebuildMockUsers();
@@ -106,6 +215,7 @@ class AppState extends ChangeNotifier {
   void attachUser(AppUser user, {bool reseed = false}) {
     me = user;
     _users[me!.id] = me!;
+    unawaited(loadCategories());
     if (_remote) {
       // Supabase モード: モックのシードは作らず実データを引きに行く
       unawaited(refreshFromRemote());

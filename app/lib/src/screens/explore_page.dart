@@ -50,7 +50,7 @@ class _ExplorePageState extends State<ExplorePage> {
                       onSelected: (_) =>
                           setState(() => _selectedCategory = null),
                     ),
-                    for (final c in interestCategories)
+                    for (final c in appState.categories)
                       FilterChip(
                         avatar: Icon(c.icon, size: 18),
                         label: Text(c.label),
@@ -77,7 +77,7 @@ class _ExplorePageState extends State<ExplorePage> {
                         spacing: 4,
                         children: [
                           for (final id in u.interestIds.take(2))
-                            Icon(categoryById(id).icon,
+                            Icon(appState.categoryOf(id).icon,
                                 size: 18, color: Colors.grey.shade600),
                         ],
                       ),

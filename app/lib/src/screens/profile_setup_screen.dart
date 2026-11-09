@@ -319,71 +319,90 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           const SizedBox(height: 16),
           Text('画像がない場合の趣味アイコン', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 96,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final c in interestCategories)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Column(
-                      children: [
-                        InkWell(
-                          onTap: () => setState(() => _iconCategory = c.id),
-                          customBorder: const CircleBorder(),
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: theme.colorScheme.primaryContainer,
-                              border: _iconCategory == c.id
-                                  ? Border.all(
-                                      color: theme.colorScheme.primary,
-                                      width: 3,
-                                    )
-                                  : null,
-                            ),
-                            child: Icon(
-                              c.icon,
-                              size: 32,
-                              color: theme.colorScheme.onPrimaryContainer,
+          ListenableBuilder(
+            listenable: appState,
+            builder: (context, _) => SizedBox(
+              height: 96,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (final c in appState.categories)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Column(
+                        children: [
+                          InkWell(
+                            onTap: () =>
+                                setState(() => _iconCategory = c.id),
+                            customBorder: const CircleBorder(),
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color:
+                                    theme.colorScheme.primaryContainer,
+                                border: _iconCategory == c.id
+                                    ? Border.all(
+                                        color:
+                                            theme.colorScheme.primary,
+                                        width: 3,
+                                      )
+                                    : null,
+                              ),
+                              child: Icon(
+                                c.icon,
+                                size: 32,
+                                color: theme
+                                    .colorScheme.onPrimaryContainer,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          c.label,
-                          style: theme.textTheme.labelSmall,
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            c.label,
+                            style: theme.textTheme.labelSmall,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          Text('興味カテゴリ（複数選択）', style: theme.textTheme.titleSmall),
+          Text('興味カテゴリ（複数選択・自由に追加できます）',
+              style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final c in interestCategories)
-                FilterChip(
-                  avatar: Icon(c.icon, size: 18),
-                  label: Text(c.label),
-                  selected: _interests.contains(c.id),
-                  onSelected: (v) => setState(() {
-                    if (v) {
-                      _interests.add(c.id);
-                    } else {
-                      _interests.remove(c.id);
-                    }
-                  }),
+          ListenableBuilder(
+            listenable: appState,
+            builder: (context, _) => Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final c in appState.categories)
+                  FilterChip(
+                    avatar: Icon(c.icon, size: 18),
+                    label: Text(c.label),
+                    selected: _interests.contains(c.id),
+                    onSelected: (v) => setState(() {
+                      if (v) {
+                        _interests.add(c.id);
+                      } else {
+                        _interests.remove(c.id);
+                      }
+                    }),
+                  ),
+                ActionChip(
+                  avatar: Icon(Icons.add,
+                      size: 18, color: theme.colorScheme.primary),
+                  label: Text('追加',
+                      style: TextStyle(
+                          color: theme.colorScheme.primary)),
+                  onPressed: () => _showAddCategorySheet(context),
                 ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Text('自己紹介（飯ともステータス）', style: theme.textTheme.titleSmall),
@@ -439,8 +458,124 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     );
   }
 
+  /// カテゴリ追加シート: 名前 + アイコンを選んで新カテゴリを作る
+  Future<void> _showAddCategorySheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final nameController = TextEditingController();
+        var selectedIcon = 'restaurant';
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) => Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('カテゴリを追加',
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .titleLarge!
+                          .copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                      '自分の趣味に合ったカテゴリを自由に作れます'
+                      '（作ったカテゴリは全ユーザーで共有されます）',
+                      style: Theme.of(sheetContext).textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameController,
+                    maxLength: 20,
+                    decoration: const InputDecoration(
+                      labelText: 'カテゴリ名',
+                      hintText: '例: 珈琲巡り / 釣り / サウナ',
+                      border: OutlineInputBorder(),
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('アイコン',
+                      style: Theme.of(sheetContext).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      for (final entry in categoryIconChoices.entries)
+                        InkWell(
+                          onTap: () => setSheetState(
+                              () => selectedIcon = entry.key),
+                          customBorder: const CircleBorder(),
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: selectedIcon == entry.key
+                                  ? Theme.of(sheetContext)
+                                      .colorScheme
+                                      .primaryContainer
+                                  : Colors.grey.shade200,
+                              border: selectedIcon == entry.key
+                                  ? Border.all(
+                                      color: Theme.of(sheetContext)
+                                          .colorScheme
+                                          .primary,
+                                      width: 3)
+                                  : null,
+                            ),
+                            child: Icon(entry.value, size: 24),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final created = await appState.addCategory(
+                          label: nameController.text,
+                          iconName: selectedIcon,
+                        );
+                        if (sheetContext.mounted) {
+                          Navigator.of(sheetContext).pop();
+                        }
+                        if (created != null) {
+                          setState(() => _interests.add(created.id));
+                        } else {
+                          if (sheetContext.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('同じ名前のカテゴリが既にあります'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Text('追加する'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _iconPreview(ThemeData theme) {
-    final cat = categoryById(_iconCategory);
+    final cat = appState.categoryOf(_iconCategory);
     Widget preview;
     final path = _iconImagePath ?? '';
     if (path.startsWith('http')) {

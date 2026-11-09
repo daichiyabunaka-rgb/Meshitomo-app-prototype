@@ -47,7 +47,7 @@ Widget userAvatar(String userId, {double size = 44, double iconScale = 0.5}) {
 }
 
 Widget _fallbackIcon(AppUser user, double size, double iconScale) {
-  final cat = categoryById(user.iconCategoryId);
+  final cat = appState.categoryOf(user.iconCategoryId);
   return Container(
     width: size,
     height: size,

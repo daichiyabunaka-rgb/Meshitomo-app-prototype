@@ -44,7 +44,7 @@ class MyPage extends StatelessWidget {
                           alignment: WrapAlignment.center,
                           children: [
                             for (final id in me.interestIds)
-                              interestLabel(categoryById(id)),
+                              interestLabel(appState.categoryOf(id)),
                           ],
                         ),
                         if (me.isBusiness && me is BusinessUser) ...[

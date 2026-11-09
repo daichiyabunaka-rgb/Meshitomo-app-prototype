@@ -16,7 +16,10 @@ const List<Genre> genres = [
 
 Genre genreById(String id) => genres.firstWhere((g) => g.id == id);
 
-/// 興味カテゴリ（本開発ではマスタデータ化してアプリ再リリースなしで追加できるようにする）
+/// 興味カテゴリ。
+/// `interestCategories` は初期セット（デフォルト）。ユーザーは自由に
+/// カテゴリを追加でき（AppState.categoryRegistry）、Supabase モードでは
+/// 全ユーザーに共有される。
 class InterestCategory {
   final String id;
   final String label;
@@ -39,8 +42,29 @@ const List<InterestCategory> interestCategories = [
   InterestCategory('brunch', '朝食・ブランチ', Icons.brunch_dining),
 ];
 
-InterestCategory categoryById(String id) =>
-    interestCategories.firstWhere((c) => c.id == id);
+/// カスタムカテゴリのアイコン候補（名前でDB保存するため定数マップ）
+const Map<String, IconData> categoryIconChoices = {
+  'restaurant': Icons.restaurant,
+  'ramen': Icons.ramen_dining,
+  'coffee': Icons.local_cafe,
+  'bar': Icons.local_bar,
+  'sports': Icons.sports_soccer,
+  'music': Icons.music_note,
+  'game': Icons.sports_esports,
+  'pet': Icons.pets,
+  'car': Icons.directions_car,
+  'bike': Icons.motorcycle,
+  'travel': Icons.flight,
+  'book': Icons.menu_book,
+  'nature': Icons.park,
+  'camera': Icons.photo_camera,
+  'music_live': Icons.festival,
+  'sea': Icons.pool,
+};
+
+/// アイコン名から IconData を引く（未登録の名前はデフォルトを返す）
+IconData categoryIconByName(String? name) =>
+    categoryIconChoices[name] ?? Icons.restaurant_menu;
 
 /// プロトタイプ用のモック現在地（本開発では端末の GPS + geohash に置き換える）
 class MockLocation {

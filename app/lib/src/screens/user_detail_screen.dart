@@ -76,7 +76,7 @@ class UserDetailScreen extends StatelessWidget {
                     alignment: WrapAlignment.center,
                     children: [
                       for (final id in user.interestIds)
-                        interestLabel(categoryById(id)),
+                        interestLabel(appState.categoryOf(id)),
                     ],
                   ),
                   if (user.snsNote?.isNotEmpty ?? false) ...[
