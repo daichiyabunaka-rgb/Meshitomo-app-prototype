@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'src/screens/home_shell.dart';
 import 'src/screens/login_screen.dart';
+import 'src/services/app_config.dart';
 import 'src/services/app_state.dart';
 import 'src/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Supabase のキーが --dart-define で渡されている場合のみ初期化する。
+  // 未指定ならモックモード（端末内データ）として動作する。
+  if (AppConfig.useSupabase) {
+    await Supabase.initialize(
+      url: AppConfig.supabaseUrl,
+      // ignore: deprecated_member_use\n      anonKey: AppConfig.supabaseAnonKey,
+    );
+  }
   await authService.init();
   // セッションが残っている場合は自動ログイン（domain状態を復元してホームへ）
   final restored = authService.buildSessionUser(
