@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../services/app_state.dart';
 import '../services/auth_service.dart';
+import 'invite_sheet.dart';
 import 'widgets.dart';
 import 'profile_setup_screen.dart';
 
@@ -78,6 +79,16 @@ class MyPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
+                Card(
+                  child: ListTile(
+                    leading: Icon(Icons.people_alt_outlined,
+                        color: theme.colorScheme.primary),
+                    title: const Text('友達を招待する'),
+                    subtitle: const Text('SNSで「一緒に使いませんか？」を送る'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showInviteSheet(context),
+                  ),
+                ),
                 Card(
                   child: Column(
                     children: [

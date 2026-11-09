@@ -8,6 +8,7 @@ import 'package:meshitomo/src/services/ai_concierge.dart';
 import 'package:meshitomo/src/services/app_state.dart';
 import 'package:meshitomo/src/services/auth_service.dart';
 import 'package:meshitomo/src/util/format.dart';
+import 'package:meshitomo/src/util/share_text.dart';
 
 AppUser _testUser(AppState state, {String id = 'me', String nickname = 'テスト太郎'}) {
   return AppUser(
@@ -44,6 +45,22 @@ void main() {
           '残り1時間20分');
       expect(remainingLabel(now.subtract(const Duration(minutes: 1)), now),
           '終了');
+    });
+  });
+
+  group('share_text（SNS共有文）', () {
+    test('招待文にニックネームとURLが入る', () {
+      final t = inviteText('焼肉のみゆ');
+      expect(t, contains('焼肉のみゆ'));
+      expect(t, contains(kAppUrl));
+      expect(t, contains('完全無料'));
+    });
+
+    test('募集の共有文にタイトルと集合場所が入る', () {
+      final t = recruitmentShareText('今夜19時ラーメン', '神田駅');
+      expect(t, contains('今夜19時ラーメン'));
+      expect(t, contains('神田駅'));
+      expect(t, contains(kAppUrl));
     });
   });
 

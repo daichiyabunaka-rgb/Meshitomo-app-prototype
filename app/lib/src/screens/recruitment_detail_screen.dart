@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models.dart';
 import '../services/app_state.dart';
 import '../util/format.dart';
+import '../util/share_text.dart';
 import 'widgets.dart';
 
 /// 募集詳細。
@@ -52,7 +54,27 @@ class _RecruitmentDetailScreenState extends State<RecruitmentDetailScreen> {
     final active = rec.isActiveAt(now);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('募集の詳細')),
+      appBar: AppBar(
+        title: const Text('募集の詳細'),
+        actions: [
+          IconButton(
+            tooltip: 'この募集を共有',
+            icon: const Icon(Icons.share),
+            onPressed: () async {
+              try {
+                await SharePlus.instance.share(
+                  ShareParams(
+                    title: 'めしとも',
+                    text: recruitmentShareText(rec.title, rec.meetup),
+                  ),
+                );
+              } catch (_) {
+                // 共有シートを開けない環境では無視する
+              }
+            },
+          ),
+        ],
+      ),
       body: ListenableBuilder(
         listenable: appState,
         builder: (context, _) {
