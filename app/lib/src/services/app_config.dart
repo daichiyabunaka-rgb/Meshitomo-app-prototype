@@ -21,6 +21,9 @@ class AppConfig {
   static const String googleMapsApiKey =
       String.fromEnvironment('GOOGLE_MAPS_API_KEY');
 
+  /// AI接客はベータ期間中ロック（本リリース後にビジネスプランとして解放）
+  static const bool aiConciergeEnabled = false;
+
   /// Supabase が設定されているか（false = モックモード）
   static bool get useSupabase =>
       supabaseUrl.isNotEmpty && effectiveKey.isNotEmpty;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
+import '../services/app_config.dart';
 import '../services/app_state.dart';
 import 'ai_concierge_screen.dart';
 import 'chat_screen.dart';
@@ -175,26 +176,31 @@ Future<void> showStoreSheet(BuildContext context, BusinessUser store) {
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.smart_toy_outlined),
-                label: const Text('AI接客に話しかける'),
-                onPressed: () {
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          AiConciergeScreen(storeId: store.id),
-                    ),
-                  );
-                },
+              child: FilledButton.tonalIcon(
+                icon: const Icon(Icons.lock_outline),
+                label: const Text('AI接客（ベータ期間中は準備中）'),
+                onPressed: AppConfig.aiConciergeEnabled
+                    ? () {
+                        Navigator.of(sheetContext).pop();
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                AiConciergeScreen(storeId: store.id),
+                          ),
+                        );
+                      }
+                    : null,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'AI接客はビジネスユーザー向けの機能です。'
-              'ベータ期間中は無料でご利用いただけます。'
-              '本リリース後は LLM による来店前の質問対応・営業文の作成支援を'
-              'ビジネスプラン（有料）として提供します。',
+              AppConfig.aiConciergeEnabled
+                  ? 'AI接客はビジネスユーザー向けの機能です。'
+                      '本リリース後は LLM による来店前の質問対応・営業文の'
+                      '作成支援をビジネスプランとして提供します。'
+                  : 'AI接客は本リリース後に提供予定です。'
+                      'ベータ期間中はお店へのDM・電話・地図連携を'
+                      '無料でご利用いただけます。',
               style: Theme.of(sheetContext).textTheme.bodySmall,
             ),
           ],

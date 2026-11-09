@@ -203,8 +203,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 4),
           Text(
             _role == 'business'
-                ? '飲食店など店舗情報を登録し、AI接客・地図連携を利用します。'
-                  'ベータ期間中は無料です'
+                ? '飲食店など店舗情報を登録し、地図連携・DM・電話対応を利用します'
+                  '（AI接客は本リリース後に提供予定）。ベータ期間中は無料です'
                 : '趣味で近くの飯ともを探します。完全無料です',
             style: theme.textTheme.bodySmall,
           ),

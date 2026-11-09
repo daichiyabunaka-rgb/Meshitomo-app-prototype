@@ -256,7 +256,7 @@ class _NearPageState extends State<NearPage> {
                           Border.all(color: Colors.orange.shade200),
                     ),
                     child: Text(
-                      'AI接客対応店',
+                      'お店',
                       style: TextStyle(
                           fontSize: 11, color: Colors.orange.shade900),
                     ),
