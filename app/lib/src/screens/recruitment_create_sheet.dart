@@ -47,16 +47,29 @@ class _CreateSheetState extends State<_CreateSheet> {
   bool get _isValid =>
       _title.text.trim().isNotEmpty && _meetup.text.trim().isNotEmpty;
 
-  void _post() {
+  Future<void> _post() async {
     if (!_isValid) return;
-    appState.createRecruitment(
-      genreId: _genreId,
-      title: _title.text.trim(),
-      body: _body.text.trim(),
-      meetup: _meetup.text.trim(),
-      capacity: _capacity,
-      expiryHours: _expiryHours,
-    );
+    try {
+      await appState.createRecruitment(
+        genreId: _genreId,
+        title: _title.text.trim(),
+        body: _body.text.trim(),
+        meetup: _meetup.text.trim(),
+        capacity: _capacity,
+        expiryHours: _expiryHours,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('募集の作成に失敗しました。通信状況を確認してください'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

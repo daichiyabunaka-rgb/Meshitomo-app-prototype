@@ -1,7 +1,29 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// flutter build の --dart-define を gradle から読む。
+// Flutter は「KEY=VALUE」全体をBase64化したものをカンマ区切りで渡す。
+fun dartDefines(): Map<String, String> {
+    val raw = project.findProperty("dart-defines") as? String ?: return emptyMap()
+    if (raw.isEmpty()) return emptyMap()
+    return raw.split(",").mapNotNull { entry ->
+        try {
+            val decoded = String(Base64.getDecoder().decode(entry), Charsets.UTF_8)
+            val idx = decoded.indexOf('=')
+            if (idx <= 0) {
+                null
+            } else {
+                decoded.substring(0, idx) to decoded.substring(idx + 1)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }.toMap()
 }
 
 android {
@@ -17,6 +39,8 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.meshitomo.meshitomo"
+        manifestPlaceholders["MAPS_API_KEY"] =
+            dartDefines()["GOOGLE_MAPS_API_KEY"] ?: ""
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

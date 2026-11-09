@@ -32,10 +32,12 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      authService.login(_email.text, _password.text);
+      await authService.login(_email.text, _password.text);
       await _attachSessionUser();
     } on AuthException catch (e) {
       setState(() => _error = e.message);
+    } catch (_) {
+      setState(() => _error = '通信エラーが発生しました');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -43,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _attachSessionUser() async {
     final gps = await locationService.currentPosition();
-    final user = authService.buildSessionUser(
+    final user = await authService.buildSessionUser(
       lat: gps?.$1 ?? appState.anchorLat,
       lng: gps?.$2 ?? appState.anchorLng,
     );
@@ -130,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-/// 会員登録（ステップ1: メール / パスワード / 同意）
+/// 会員登録（ステップ1: 登録種別 / メール / パスワード / 同意）
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -143,6 +145,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _password = TextEditingController();
   bool _agreedAge = false;
   bool _agreedRule = false;
+  String _role = 'general';
   String? _error;
 
   @override
@@ -165,6 +168,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         builder: (_) => ProfileSetupScreen(
           registrationEmail: _email.text.trim(),
           registrationPassword: _password.text,
+          registrationRole: _role,
         ),
       ),
     );
@@ -172,11 +176,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('会員登録')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text('登録種別', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'general',
+                icon: Icon(Icons.person_outline),
+                label: Text('一般ユーザー'),
+              ),
+              ButtonSegment(
+                value: 'business',
+                icon: Icon(Icons.storefront_outlined),
+                label: Text('ビジネスユーザー'),
+              ),
+            ],
+            selected: {_role},
+            onSelectionChanged: (s) => setState(() => _role = s.first),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _role == 'business'
+                ? '飲食店など店舗情報を登録し、AI接客・地図連携といった'
+                  '有料機能を利用します（一般ユーザーは完全無料です）'
+                : '趣味で近くの飯ともを探します。完全無料です',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _email,
             keyboardType: TextInputType.emailAddress,

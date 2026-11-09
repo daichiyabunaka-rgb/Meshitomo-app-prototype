@@ -96,14 +96,23 @@ class _NearPageState extends State<NearPage> {
               child: ListenableBuilder(
                 listenable: appState,
                 builder: (context, _) {
+                  Widget body;
                   switch (_tab) {
                     case NearTab.recruit:
-                      return _recruitList(context);
+                      body = _recruitList(context);
+                      break;
                     case NearTab.people:
-                      return _peopleList(context);
+                      body = _peopleList(context);
+                      break;
                     case NearTab.business:
-                      return _businessList(context);
+                      body = _businessList(context);
+                      break;
                   }
+                  // Supabase モードでは引き更新で実データを再取得
+                  return RefreshIndicator(
+                    onRefresh: () => appState.refreshFromRemote(),
+                    child: body,
+                  );
                 },
               ),
             ),

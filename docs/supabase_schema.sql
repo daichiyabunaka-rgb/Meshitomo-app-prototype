@@ -116,15 +116,12 @@ create table public.chat_messages (
 );
 
 alter table public.chat_room_members enable row level security;
-create policy "メンバーのみ部屋を閲覧・参加" on public.chat_room_members
-  for all using (true)
-  with check (
-    auth.uid() in (
-      select host_id from public.recruitments r
-      where r.id = (select recruitment_id from public.chat_rooms c where c.id = room_id)
-    )
-  );
--- NOTE: DM の作成は RPC（get_or_create_dm）で本人確認してから行う
+create policy "メンバーは自分の参加情報を閲覧" on public.chat_room_members
+  for select using (auth.uid() = user_id);
+create policy "本人のみ自分の参加を追加" on public.chat_room_members
+  for insert with check (auth.uid() = user_id);
+-- NOTE: グループ部屋のメンバー追加（承認時）はホスト権限の RPC で行う想定。
+-- DM の作成は get_or_create_dm（security definer）で本人確認してから行う
 
 alter table public.chat_messages enable row level security;
 create policy "メンバーのみメッセージを閲覧" on public.chat_messages

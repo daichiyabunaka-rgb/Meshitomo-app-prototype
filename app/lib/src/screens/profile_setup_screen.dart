@@ -14,43 +14,65 @@ const List<String> decades = ['18〜19歳', '20代', '30代', '40代', '50代以
 /// プロフィール登録・編集（FR-1-2, FR-1-3, FR-4-1）
 /// - 会員登録モード: registrationEmail / registrationPassword を渡す（メール認証付きで登録）
 /// - 編集モード: existing を渡す
-/// 顔写真は不可。アイコンは用意された「趣味アイコンセット」から選ぶ。
+/// 顔写真は不可。アイコンは「アイコンセット」または投稿画像。
+/// ビジネスユーザー（registrationRole='business'）は店舗情報も入力する。
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({
     super.key,
     this.existing,
     this.registrationEmail,
     this.registrationPassword,
+    this.registrationRole = 'general',
   });
 
   final AppUser? existing;
   final String? registrationEmail;
   final String? registrationPassword;
+  final String registrationRole;
 
   @override
   State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
 }
 
+const List<String> storeTypes = [
+  '居酒屋', 'ラーメン店', '焼肉店', 'カフェ', 'そば・うどん',
+  '寿司', 'イタリアン', '中華', 'その他',
+];
+
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   late final TextEditingController _nickname;
   late final TextEditingController _bio;
+  late final TextEditingController _website;
+  late final TextEditingController _sns;
+  late final TextEditingController _phone;
   late String _decade;
   late String _gender;
   late String _iconCategory;
+  late String? _storeType;
   late final Set<String> _interests;
   // アイコン画像（投稿）。null=未選択（既定の趣味アイコンを使う）, ''=解除
   String? _iconImagePath;
   bool _submitting = false;
 
+  bool get _isBusiness =>
+      widget.registrationRole == 'business' ||
+      (widget.existing?.isBusiness ?? false);
+
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
-    _nickname = TextEditingController(text: e?.nickname ?? '');
+    final b = e is BusinessUser ? e : null;
+    _nickname = TextEditingController(
+        text: e?.nickname ?? '');
     _bio = TextEditingController(text: e?.bio ?? '');
-    _decade = e?.decade ?? '20代';
+    _website = TextEditingController(text: e?.websiteUrl ?? '');
+    _sns = TextEditingController(text: e?.snsNote ?? '');
+    _phone = TextEditingController(text: e?.phone ?? '');
+    _decade = _isBusiness ? '経営者' : (e?.decade ?? '20代');
     _gender = e?.gender ?? 'undisclosed';
-    _iconCategory = e?.iconCategoryId ?? 'ramen';
+    _iconCategory = e?.iconCategoryId ?? 'izakaya';
+    _storeType = b?.storeType ?? '居酒屋';
     _interests = <String>{...?e?.interestIds};
     _iconImagePath = (e?.iconImagePath?.isNotEmpty ?? false)
         ? e!.iconImagePath
@@ -61,12 +83,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void dispose() {
     _nickname.dispose();
     _bio.dispose();
+    _website.dispose();
+    _sns.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
   bool get _isValid =>
       _nickname.text.trim().isNotEmpty &&
-      _interests.isNotEmpty &&
+      (_isBusiness || _interests.isNotEmpty) &&
       _iconCategory.isNotEmpty;
 
   Future<void> _pickImage(ImageSource source) async {
@@ -81,6 +106,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     setState(() => _submitting = true);
     final nickname = _nickname.text.trim();
     final bio = _bio.text.trim();
+    final website =
+        _website.text.trim().isEmpty ? null : _website.text.trim();
+    final sns = _sns.text.trim().isEmpty ? null : _sns.text.trim();
+    final phone =
+        _phone.text.trim().isEmpty ? null : _phone.text.trim();
     final imagePath =
         (_iconImagePath == null || _iconImagePath!.isEmpty) ? null : _iconImagePath;
 
@@ -91,22 +121,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         if (gps != null) {
           appState.applyGps(gps.$1, gps.$2);
         }
-        authService.register(
+        await authService.register(
           email: widget.registrationEmail!,
           password: widget.registrationPassword!,
           nickname: nickname,
-          decade: _decade,
+          decade: _isBusiness ? '経営者' : _decade,
           gender: _gender,
           iconCategoryId: _iconCategory,
           interestIds: _interests.toList(),
           bio: bio,
           iconImagePath: imagePath,
+          role: widget.registrationRole,
+          websiteUrl: website,
+          snsNote: sns,
+          phone: _isBusiness ? phone : null,
+          storeType: _isBusiness ? _storeType : null,
         );
-        final user = authService.buildSessionUser(
+        final user = await authService.buildSessionUser(
           lat: gps?.$1 ?? appState.anchorLat,
           lng: gps?.$2 ?? appState.anchorLng,
         );
-        appState.attachUser(user!, reseed: true);
+        if (user != null) {
+          appState.attachUser(user, reseed: true);
+        }
       } on AuthException catch (e) {
         if (mounted) {
           setState(() {
@@ -122,8 +159,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         return;
       }
     } else {
-      authService.updateCurrentProfile(
+      await authService.updateCurrentProfile(
         iconImagePath: _iconImagePath, // null=変更なし, ''=解除, パス=新画像
+        websiteUrl: website,
+        snsNote: sns,
+        phone: phone,
+        storeType: _isBusiness ? _storeType : null,
       );
       appState.updateProfile(
         nickname: nickname,
@@ -133,6 +174,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         interestIds: _interests.toList(),
         bio: bio,
         iconImagePath: _iconImagePath,
+        websiteUrl: website,
+        snsNote: sns,
+        phone: phone,
+        storeType: _isBusiness ? _storeType : null,
       );
     }
     if (mounted) {
@@ -157,43 +202,78 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('ニックネーム', style: theme.textTheme.titleSmall),
+          Text(
+              _isBusiness
+                  ? 'ニックネーム（店舗名など、公開名）'
+                  : 'ニックネーム',
+              style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           TextField(
             controller: _nickname,
-            decoration: const InputDecoration(
-              hintText: '例: 麺活さとる',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              hintText: _isBusiness ? '例: 居酒屋 のれん' : '例: 麺活さとる',
+              border: const OutlineInputBorder(),
               counterText: '',
             ),
             maxLength: 20,
           ),
-          const SizedBox(height: 8),
-          Text('年代', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final d in decades)
-                ChoiceChip(
-                  label: Text(d),
-                  selected: _decade == d,
-                  onSelected: (_) => setState(() => _decade = d),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text('性別', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'male', label: Text('男性')),
-              ButtonSegment(value: 'female', label: Text('女性')),
-              ButtonSegment(value: 'undisclosed', label: Text('非公開')),
-            ],
-            selected: {_gender},
-            onSelectionChanged: (s) => setState(() => _gender = s.first),
-          ),
+          if (_isBusiness) ...[
+            Text('業態', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final t in storeTypes)
+                  ChoiceChip(
+                    label: Text(t),
+                    selected: _storeType == t,
+                    onSelected: (_) => setState(() => _storeType = t),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('電話番号（お店への問い合わせ用。タップで発信できるよう表示されます）',
+                style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                hintText: '例: 03-1234-5678',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (!_isBusiness) ...[
+            Text('年代', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final d in decades)
+                  ChoiceChip(
+                    label: Text(d),
+                    selected: _decade == d,
+                    onSelected: (_) => setState(() => _decade = d),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('性別', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'male', label: Text('男性')),
+                ButtonSegment(value: 'female', label: Text('女性')),
+                ButtonSegment(value: 'undisclosed', label: Text('非公開')),
+              ],
+              selected: {_gender},
+              onSelectionChanged: (s) => setState(() => _gender = s.first),
+            ),
+          ],
           const SizedBox(height: 16),
           Text('アイコン', style: theme.textTheme.titleSmall),
           const SizedBox(height: 4),
@@ -317,10 +397,40 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             controller: _bio,
             maxLines: 4,
             maxLength: 140,
+            decoration: InputDecoration(
+              hintText: _isBusiness
+                  ? '例: 常連さんが集まる小さな居酒屋。ひとり飲みも大歓迎。'
+                  : '例: 平日夜のラーメンと土曜のブランチが好き。'
+                    'ひとり飯もするけど、同じ趣味の人と行くと倍くらい美味しい。',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('公開URL（SNSやホームページ）', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            'プロフィールに表示され、タップで開きます。',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _website,
+            keyboardType: TextInputType.url,
             decoration: const InputDecoration(
-              hintText:
-                  '例: 平日夜のラーメンと土曜のブランチが好き。ひとり飯もするけど、同じ趣味の人と行くと倍くらい美味しい。',
+              labelText: 'URL',
+              hintText: 'https://...',
               border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.link),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _sns,
+            decoration: const InputDecoration(
+              labelText: 'SNS',
+              hintText: '例: X: @meshitomo / IG: meshitomo',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.alternate_email),
             ),
           ),
           const SizedBox(height: 24),

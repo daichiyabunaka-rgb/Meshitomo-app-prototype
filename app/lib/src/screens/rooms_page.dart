@@ -1,12 +1,35 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/app_state.dart';
 import 'widgets.dart';
 import 'chat_screen.dart';
 
-/// 「部屋」タブ: 自分が参加している募集のグループチャット一覧（FR-3-3）
-class RoomsPage extends StatelessWidget {
+/// 「部屋」タブ: 自分が参加している募集のグループチャットとDM一覧（FR-3-3）
+class RoomsPage extends StatefulWidget {
   const RoomsPage({super.key});
+
+  @override
+  State<RoomsPage> createState() => _RoomsPageState();
+}
+
+class _RoomsPageState extends State<RoomsPage> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    // Supabase モード: 20秒ごとに実データを引き直して着信を反映
+    _ticker = Timer.periodic(
+        const Duration(seconds: 20), (_) => appState.refreshFromRemote());
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

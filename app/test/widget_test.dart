@@ -72,7 +72,7 @@ void main() {
       await auth.init();
 
       // 会員登録 → 同時にログインされる
-      auth.register(
+      await auth.register(
         email: 'Test@Example.com',
         password: 'secret123',
         nickname: '太郎',
@@ -86,17 +86,19 @@ void main() {
       expect(auth.sessionNickname(), '太郎');
 
       // ログアウト → セッション消えるがアカウントは残る
-      auth.logout();
+      await auth.logout();
       expect(auth.hasSession, isFalse);
-      auth.login('test@example.com', 'secret123');
+      await auth.login('test@example.com', 'secret123');
       expect(auth.hasSession, isTrue);
 
       // 誤パスワードは拒否される
-      expect(() => auth.login('test@example.com', 'wrong-pw'),
-          throwsA(isA<AuthException>()));
+      await expectLater(
+        auth.login('test@example.com', 'wrong-pw'),
+        throwsA(isA<AuthException>()),
+      );
 
       // 同 email の再登録は拒否される
-      expect(() {
+      await expectLater(
         auth.register(
           email: 'test@example.com',
           password: 'x',
@@ -106,15 +108,16 @@ void main() {
           iconCategoryId: 'ramen',
           interestIds: const ['ramen'],
           bio: '',
-        );
-      }, throwsA(isA<AuthException>()));
+        ),
+        throwsA(isA<AuthException>()),
+      );
     });
 
     test('セッションからユーザーを復元できる', () async {
       SharedPreferences.setMockInitialValues({});
       final auth = AuthService();
       await auth.init();
-      auth.register(
+      await auth.register(
         email: 'a@b.com',
         password: 'secret123',
         nickname: '花子',
@@ -124,7 +127,7 @@ void main() {
         interestIds: const ['sweets'],
         bio: 'テスト',
       );
-      final user = auth.buildSessionUser(lat: 35.0, lng: 139.0);
+      final user = await auth.buildSessionUser(lat: 35.0, lng: 139.0);
       expect(user, isNotNull);
       expect(user!.nickname, '花子');
       expect(user.lat, 35.0);
@@ -222,10 +225,10 @@ void main() {
       }
     });
 
-    test('募集を作ると期限付きで立ち一覧に載る', () {
+    test('募集を作ると期限付きで立ち一覧に載る', () async {
       final state = AppState();
       state.attachUser(_testUser(state), reseed: true);
-      final rec = state.createRecruitment(
+      final rec = await state.createRecruitment(
         genreId: 'meshi',
         title: 'テストの募集',
         body: '本文',
@@ -276,15 +279,15 @@ void main() {
       expect(state.me!.iconImagePath, isNotEmpty);
     });
 
-    test('DM: 同一相手との部屋は再利用され、違う相手は別の部屋になる', () {
+    test('DM: 同一相手との部屋は再利用され、違う相手は別の部屋になる', () async {
       final state = AppState();
       state.attachUser(_testUser(state), reseed: true);
       final other = state.generalUsers.first;
-      final dm1 = state.getOrCreateDm(other.id);
-      final dm2 = state.getOrCreateDm(other.id);
+      final dm1 = await state.getOrCreateDm(other.id);
+      final dm2 = await state.getOrCreateDm(other.id);
       expect(dm1.id, dm2.id);
       final other2 = state.generalUsers[1];
-      final dm3 = state.getOrCreateDm(other2.id);
+      final dm3 = await state.getOrCreateDm(other2.id);
       expect(dm3.id, isNot(dm1.id));
       expect(state.myRooms.where((r) => r.isDm), hasLength(2));
       expect(state.lastMessageOf(dm1.id), isNotEmpty); // system メッセージ

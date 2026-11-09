@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../models.dart';
 import '../services/app_state.dart';
 import '../services/auth_service.dart';
@@ -45,7 +47,95 @@ class MyPage extends StatelessWidget {
                               interestLabel(categoryById(id)),
                           ],
                         ),
-                        if (me.bio.isNotEmpty) ...[
+                        if (me.isBusiness && me is BusinessUser) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border:
+                            Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Text(
+                        'ビジネスユーザー / ${me.storeType}',
+                        style:
+                            TextStyle(color: Colors.orange.shade900),
+                      ),
+                    ),
+                  ],
+                  if (me.phone?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.phone,
+                            size: 16, color: theme.colorScheme.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          me.phone!,
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (me.snsNote?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.alternate_email,
+                            size: 16, color: Colors.grey.shade600),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            me.snsNote!,
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (me.websiteUrl?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () async {
+                        final raw = me.websiteUrl!;
+                        final url = raw.startsWith('http://') ||
+                                raw.startsWith('https://')
+                            ? raw
+                            : 'https://$raw';
+                        try {
+                          await launchUrl(Uri.parse(url),
+                              mode: LaunchMode.externalApplication);
+                        } catch (_) {}
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.link,
+                              size: 16, color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              me.websiteUrl!,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (me.bio.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Text(
                             me.bio,
@@ -122,8 +212,8 @@ class MyPage extends StatelessWidget {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.logout),
                     label: const Text('ログアウト'),
-                    onPressed: () {
-                      authService.logout();
+                    onPressed: () async {
+                      await authService.logout();
                       appState.detach();
                     },
                   ),

@@ -23,10 +23,20 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     appState.markRoomRead(widget.roomId);
+    // Supabase モード: 既存メッセージを取りに行く
+    unawaited(appState.reloadRoomMessages(widget.roomId));
     _ticker = Timer.periodic(Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      // 5回に1回（5秒ごと）実データを引き直す（Supabase モード）
+      _tick++;
+      if (_tick % 5 == 0) {
+        unawaited(appState.reloadRoomMessages(widget.roomId));
+      }
     });
   }
+
+  int _tick = 0;
 
   @override
   void dispose() {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
 import '../services/app_state.dart';
@@ -7,10 +8,31 @@ import 'widgets.dart';
 
 /// ユーザー詳細（プロフィール閲覧 + DM の起点）。
 /// 出会い系ではなく飯とも候補として見る画面なので、募集や嗜好を主に表示する。
+/// SNS・URLは本人がプロフィールで公開したものだけ表示する。
 class UserDetailScreen extends StatelessWidget {
   const UserDetailScreen({super.key, required this.userId});
 
   final String userId;
+
+  Future<void> _open(String url) async {
+    try {
+      await launchUrl(Uri.parse(url),
+          mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  Future<void> _call(String phone) async {
+    try {
+      await launchUrl(Uri.parse('tel:$phone'));
+    } catch (_) {}
+  }
+
+  String _normalizedUrl(String raw) {
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return raw;
+    }
+    return 'https://$raw';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +62,11 @@ class UserDetailScreen extends StatelessWidget {
                         .copyWith(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    '${user.decade} / ${user.genderLabel} / '
-                    '${appState.userDistanceLabel(user)}',
+                    user.isBusiness
+                        ? '${(user as BusinessUser).storeType} / '
+                            '${appState.userDistanceLabel(user)}'
+                        : '${user.decade} / ${user.genderLabel} / '
+                            '${appState.userDistanceLabel(user)}',
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -54,6 +79,74 @@ class UserDetailScreen extends StatelessWidget {
                         interestLabel(categoryById(id)),
                     ],
                   ),
+                  if (user.snsNote?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.alternate_email,
+                            size: 16, color: Colors.grey.shade600),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            user.snsNote!,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (user.websiteUrl?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () => _open(_normalizedUrl(user.websiteUrl!)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.link,
+                              size: 16, color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              user.websiteUrl!,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (user.isBusiness &&
+                      (user.phone?.isNotEmpty ?? false)) ...[
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () => _call(user.phone!),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.phone,
+                                size: 16, color: theme.colorScheme.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              user.phone!,
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   if (user.bio.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -73,8 +166,9 @@ class UserDetailScreen extends StatelessWidget {
               child: FilledButton.icon(
                 icon: const Icon(Icons.chat_bubble_outline),
                 label: const Text('DMを始める'),
-                onPressed: () {
-                  final room = appState.getOrCreateDm(user.id);
+                onPressed: () async {
+                  final room = await appState.getOrCreateDm(user.id);
+                  if (!context.mounted) return;
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => ChatScreen(roomId: room.id),

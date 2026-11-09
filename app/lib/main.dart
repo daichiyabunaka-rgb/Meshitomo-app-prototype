@@ -14,17 +14,19 @@ void main() async {
   if (AppConfig.useSupabase) {
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      // ignore: deprecated_member_use\n      anonKey: AppConfig.supabaseAnonKey,
+      publishableKey: AppConfig.effectiveKey,
     );
   }
   await authService.init();
   // セッションが残っている場合は自動ログイン（domain状態を復元してホームへ）
-  final restored = authService.buildSessionUser(
-    lat: appState.anchorLat,
-    lng: appState.anchorLng,
-  );
-  if (restored != null) {
-    appState.attachUser(restored, reseed: true);
+  if (authService.hasSession) {
+    final restored = await authService.buildSessionUser(
+      lat: appState.anchorLat,
+      lng: appState.anchorLng,
+    );
+    if (restored != null) {
+      appState.attachUser(restored, reseed: true);
+    }
   }
   runApp(const MeshitomoApp());
 }

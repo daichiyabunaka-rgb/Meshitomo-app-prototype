@@ -4,11 +4,25 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models.dart';
 import '../services/app_state.dart';
 import 'ai_concierge_screen.dart';
+import 'chat_screen.dart';
 import 'map_screen.dart';
 import 'widgets.dart';
 
 /// 店舗（ビジネスユーザー）の詳細シート。「近く」とマップ画面の両方から使う。
-/// クーポン機能は廃止（2026-02 方針変更）。店舗情報・マップ連携・AI接客を提供する。
+/// 電話はタップで発信、SNS/URLも表示。お店（スタッフ）へのDMもここから開始できる。
+Future<void> _callStore(String phone) async {
+  try {
+    await launchUrl(Uri.parse('tel:$phone'));
+  } catch (_) {}
+}
+
+Future<void> _openUrl(String raw) async {
+  final url =
+      raw.startsWith('http://') || raw.startsWith('https://') ? raw : 'https://$raw';
+  try {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  } catch (_) {}
+}
 Future<void> showStoreSheet(BuildContext context, BusinessUser store) {
   return showModalBottomSheet<void>(
     context: context,
@@ -45,7 +59,92 @@ Future<void> showStoreSheet(BuildContext context, BusinessUser store) {
             ),
             const SizedBox(height: 12),
             Text(store.bio),
+            if (store.phone?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => _callStore(store.phone!),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.phone,
+                          size: 18,
+                          color: Theme.of(sheetContext).colorScheme.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        store.phone!,
+                        style: TextStyle(
+                          color:
+                              Theme.of(sheetContext).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text('タップで電話',
+                          style: Theme.of(sheetContext).textTheme.labelSmall),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (store.snsNote?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.alternate_email,
+                      size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 4),
+                  Flexible(child: Text(store.snsNote!)),
+                ],
+              ),
+            ],
+            if (store.websiteUrl?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: () => _openUrl(store.websiteUrl!),
+                child: Row(
+                  children: [
+                    Icon(Icons.link,
+                        size: 16,
+                        color: Theme.of(sheetContext).colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        store.websiteUrl!,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color:
+                              Theme.of(sheetContext).colorScheme.primary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('お店にDMする（スタッフ対応）'),
+                onPressed: () async {
+                  Navigator.of(sheetContext).pop();
+                  final room = await appState.getOrCreateDm(store.id);
+                  if (!context.mounted) return;
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ChatScreen(roomId: room.id),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(

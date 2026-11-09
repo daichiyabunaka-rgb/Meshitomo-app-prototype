@@ -5,10 +5,13 @@ import 'package:flutter/foundation.dart';
 import '../mock/mock_data.dart';
 import '../models.dart';
 import '../util/format.dart';
+import 'app_config.dart';
+import 'supabase_data.dart';
 
-/// アプリ全体の状態。プロトタイプでは募集・部屋などのドメイン状態はインメモリ。
-/// 認証（アカウント・セッション）は AuthService が担い、このクラスは
-/// 「ログイン中のユーザー」だけを知る。本開発で Supabase 実装に差し替える境界。
+/// アプリ全体の状態。
+/// - モックモード: ドメイン状態はインメモリ（モックユーザーが自動で応募・返信する）
+/// - Supabase モード（--dart-define でキー指定）: 募集・応募・チャット・DM は
+///   実データ。モックの自動応答は無効化される。
 class AppState extends ChangeNotifier {
   AppUser? me;
   bool gpsAvailable = false;
@@ -25,6 +28,9 @@ class AppState extends ChangeNotifier {
   int _seq = 1;
   bool _closed = false;
   bool _seeded = false;
+  bool _remoteBusy = false;
+
+  bool get _remote => AppConfig.useSupabase;
 
   AppState() {
     _rebuildMockUsers();
@@ -75,29 +81,21 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// 実 GPS で現在地を更新（モックユーザーが現在地の周囲に再配置される）
+  /// 実 GPS で現在地を更新（モックユーザーが現在地の周囲に再配置される）。
+  /// Supabase モードでは自分の位置 geohash を DB に反映して近傍を引き直す。
   void applyGps(double lat, double lng) {
     gpsAvailable = true;
     anchorLat = lat;
     anchorLng = lng;
     _rebuildMockUsers();
     if (me != null) {
-      final old = me!;
-      me = AppUser(
-        id: old.id,
-        nickname: old.nickname,
-        decade: old.decade,
-        gender: old.gender,
-        iconCategoryId: old.iconCategoryId,
-        interestIds: old.interestIds,
-        bio: old.bio,
-        lat: lat,
-        lng: lng,
-        iconImagePath: old.iconImagePath,
-      );
+      me = me!.withPosition(lat, lng);
       _users[me!.id] = me!;
     }
     notifyListeners();
+    if (_remote && me != null) {
+      unawaited(refreshFromRemote());
+    }
   }
 
   // ------------------------------------------------------------ account
@@ -106,7 +104,11 @@ class AppState extends ChangeNotifier {
   void attachUser(AppUser user, {bool reseed = false}) {
     me = user;
     _users[me!.id] = me!;
-    if (reseed || !_seeded) {
+    if (_remote) {
+      // Supabase モード: モックのシードは作らず実データを引きに行く
+      unawaited(refreshFromRemote());
+      _seeded = true;
+    } else if (reseed || !_seeded) {
       _recruitments.clear();
       _recruitments.addAll(seedRecruitments(_now(), _users.values
           .where((u) => u.id != me!.id && !u.isBusiness)
@@ -122,6 +124,93 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Supabase モード: 近くの人・募集・応募・部屋を実データから引き直す
+  Future<void> refreshFromRemote() async {
+    if (me == null || !AppConfig.useSupabase || _remoteBusy) return;
+    _remoteBusy = true;
+    try {
+      await supabaseData.updateMyLocation(me!.lat, me!.lng);
+      final (users, recsHosts) = await (
+        supabaseData.fetchNearbyUsers(me!),
+        supabaseData.fetchActiveRecruitments(me!)
+      ).wait;
+      // ユーザーマップを再構築（自分 + 実データ。モックは使わない）
+      _users
+        ..clear()
+        ..addEntries(users.map((u) => MapEntry(u.id, u)));
+      if (me != null) {
+        _users[me!.id] = me!;
+      }
+      for (final h in recsHosts.$2) {
+        _users[h.id] = h;
+      }
+      _recruitments
+        ..clear()
+        ..addAll(recsHosts.$1);
+      // 自分の募集への応募
+      final myRecs = _recruitments.where((r) => r.hostId == me!.id).toList();
+      final (hostApps, appUsers) =
+          await supabaseData.fetchHostApplications(myRecs);
+      final myApps = await supabaseData.fetchMyApplications();
+      _applications
+        ..clear()
+        ..addAll(hostApps)
+        ..addAll(myApps);
+      for (final u in appUsers) {
+        _users[u.id] = u;
+        // 応募者が募集に既に参加している場合（承認済み）に対応
+      }
+      // 承認済みの member_ids を募集に反映
+      for (final app in _applications) {
+        if (app.status == JoinStatus.accepted) {
+          final rec = _recruitments.any((r) => r.id == app.recruitmentId)
+              ? _recruitments.firstWhere((r) => r.id == app.recruitmentId)
+              : null;
+          if (rec != null && !rec.memberIds.contains(app.applicantId)) {
+            final idx = _recruitments.indexOf(rec);
+            _recruitments[idx] = Recruitment(
+              id: rec.id,
+              hostId: rec.hostId,
+              genreId: rec.genreId,
+              title: rec.title,
+              body: rec.body,
+              meetup: rec.meetup,
+              capacity: rec.capacity,
+              createdAt: rec.createdAt,
+              expiresAt: rec.expiresAt,
+              memberIds: [...rec.memberIds, app.applicantId],
+            );
+          }
+        }
+      }
+      // 部屋
+      final rooms = await supabaseData.fetchMyRooms();
+      for (final room in rooms) {
+        final exists = _rooms.any((r) => r.id == room.id);
+        if (!exists) {
+          _rooms.add(room);
+          _messages.putIfAbsent(room.id, () => []);
+        }
+      }
+      notifyListeners();
+    } catch (_) {
+      // ベータ: 通信エラーは画面を壊さず無視（次の更新で再試行）
+    } finally {
+      _remoteBusy = false;
+    }
+  }
+
+  /// Supabase モード: 部屋のメッセージを引き直す（チャット画面と部屋一覧で使用）
+  Future<void> reloadRoomMessages(String roomId) async {
+    if (!AppConfig.useSupabase) return;
+    try {
+      final messages = await supabaseData.fetchMessages(roomId);
+      _messages[roomId] = messages;
+      notifyListeners();
+    } catch (_) {
+      // 無視
+    }
+  }
   void updateProfile({
     required String nickname,
     required String decade,
@@ -130,22 +219,53 @@ class AppState extends ChangeNotifier {
     required List<String> interestIds,
     required String bio,
     String? iconImagePath,
+    String? websiteUrl,
+    String? snsNote,
+    String? phone,
+    String? storeType,
   }) {
     final old = me!;
-    me = AppUser(
-      id: old.id,
-      nickname: nickname,
-      decade: decade,
-      gender: gender,
-      iconCategoryId: iconCategoryId,
-      interestIds: interestIds,
-      bio: bio,
-      lat: old.lat,
-      lng: old.lng,
-      iconImagePath: iconImagePath,
-    );
+    if (old is BusinessUser) {
+      me = BusinessUser(
+        id: old.id,
+        nickname: nickname,
+        decade: decade,
+        gender: gender,
+        iconCategoryId: iconCategoryId,
+        interestIds: interestIds,
+        bio: bio,
+        lat: old.lat,
+        lng: old.lng,
+        storeType: storeType ?? old.storeType,
+        iconImagePath: _pickIcon(old.iconImagePath, iconImagePath),
+        websiteUrl: websiteUrl ?? old.websiteUrl,
+        snsNote: snsNote ?? old.snsNote,
+        phone: phone ?? old.phone,
+      );
+    } else {
+      me = AppUser(
+        id: old.id,
+        nickname: nickname,
+        decade: decade,
+        gender: gender,
+        iconCategoryId: iconCategoryId,
+        interestIds: interestIds,
+        bio: bio,
+        lat: old.lat,
+        lng: old.lng,
+        iconImagePath: _pickIcon(old.iconImagePath, iconImagePath),
+        websiteUrl: websiteUrl ?? old.websiteUrl,
+        snsNote: snsNote ?? old.snsNote,
+        phone: phone ?? old.phone,
+      );
+    }
     _users[me!.id] = me!;
     notifyListeners();
+  }
+
+  String? _pickIcon(String? current, String? incoming) {
+    if (incoming == null) return current; // 変更なし
+    return incoming; // '' は解除、パスは新画像
   }
 
   // ------------------------------------------------------------ recruit
@@ -183,14 +303,27 @@ class AppState extends ChangeNotifier {
     return distanceLabel(haversineKm(mine.lat, mine.lng, u.lat, u.lng));
   }
 
-  Recruitment createRecruitment({
+  Future<Recruitment> createRecruitment({
     required String genreId,
     required String title,
     required String body,
     required String meetup,
     required int capacity,
     required int expiryHours,
-  }) {
+  }) async {
+    if (_remote) {
+      final rec = await supabaseData.createRecruitment(
+        genreId: genreId,
+        title: title,
+        body: body,
+        meetup: meetup,
+        capacity: capacity,
+        expiryHours: expiryHours,
+      );
+      _recruitments.insert(0, rec);
+      notifyListeners();
+      return rec;
+    }
     final now = _now();
     final rec = Recruitment(
       id: 'r-${_seq++}',
@@ -291,6 +424,10 @@ class AppState extends ChangeNotifier {
       applicantId: me!.id,
       message: message,
     );
+    if (_remote) {
+      unawaited(supabaseData.insertApplication(recruitmentId, message));
+      return; // 本物のホストがアプリで承認する（自動承認なし）
+    }
     // デモ用: 数秒後にホストが承認する
     _fakeDelay(const Duration(seconds: 3), () {
       final app = myPendingApplication(recruitmentId);
@@ -311,6 +448,10 @@ class AppState extends ChangeNotifier {
   void declineApplication(String applicationId) {
     for (final a in _applications) {
       if (a.id == applicationId) a.status = JoinStatus.declined;
+    }
+    if (_remote) {
+      unawaited(
+          supabaseData.setApplicationStatus(applicationId, JoinStatus.declined));
     }
     notifyListeners();
   }
@@ -340,12 +481,35 @@ class AppState extends ChangeNotifier {
     final room = _ensureRoomFor(updated);
     _postMessage(room.id,
         senderId: 'system',
-        body: '${_users[app.applicantId]!.nickname} さんが参加しました。',
+        body: '${_users[app.applicantId]?.nickname ?? '新しい参加者'}'
+            ' さんが参加しました。',
         isSystem: true);
     unreadByRoom[room.id] = (unreadByRoom[room.id] ?? 0) + 1;
     notifyListeners();
 
-    // デモ用: 参加者がひとこと挨拶する
+    if (_remote) {
+      // 実書き込み: ステータス・メンバー・部屋・システムメッセージ
+      unawaited(() async {
+        try {
+          await supabaseData.setApplicationStatus(
+              app.id, JoinStatus.accepted);
+          await supabaseData.setRecruitmentMembers(
+              updated.id, updated.memberIds);
+          final dbRoom = await supabaseData.ensureGroupRoom(
+              updated.id, updated.hostId);
+          await supabaseData.addRoomMember(dbRoom.id, app.applicantId);
+          await supabaseData.postMessage(dbRoom.id,
+              '${_users[app.applicantId]?.nickname ?? '新しい参加者'}'
+              ' さんが参加しました。',
+              isSystem: true);
+        } catch (_) {
+          // 無視（次回の同期で回復）
+        }
+      }());
+      return;
+    }
+
+    // デモ用: 参加者がひとこと挨拶する（モックのみ）
     if (app.applicantId != me!.id) {
       _fakeDelay(const Duration(seconds: 2), () {
         _postMessage(room.id,
@@ -391,17 +555,34 @@ class AppState extends ChangeNotifier {
 
   void markRoomRead(String roomId) {
     unreadByRoom[roomId] = 0;
+    if (_remote) {
+      unawaited(supabaseData.markRoomRead(roomId));
+    }
     notifyListeners();
   }
 
   /// 特定ユーザーとの DM ルームを取得（なければ作る）
-  ChatRoom getOrCreateDm(String otherUserId) {
+  Future<ChatRoom> getOrCreateDm(String otherUserId) async {
     for (final room in _rooms) {
       if (room.isDm &&
           room.memberIds.contains(me!.id) &&
           room.memberIds.contains(otherUserId)) {
         return room;
       }
+    }
+    if (_remote) {
+      final roomId = await supabaseData.getOrCreateDm(otherUserId);
+      final room = ChatRoom(
+        id: roomId,
+        recruitmentId: '',
+        memberIds: [me!.id, otherUserId],
+        createdAt: _now(),
+        type: 'dm',
+      );
+      _rooms.insert(0, room);
+      _messages.putIfAbsent(room.id, () => []);
+      notifyListeners();
+      return room;
     }
     final room = ChatRoom(
       id: 'dm-${_seq++}',
@@ -424,6 +605,10 @@ class AppState extends ChangeNotifier {
   void sendMessage(String roomId, String body) {
     _postMessage(roomId, senderId: me!.id, body: body);
     notifyListeners();
+    if (_remote) {
+      unawaited(supabaseData.postMessage(roomId, body));
+      return;
+    }
     // デモ用: 他の参加者が返信する
     final room = roomById(roomId);
     if (room == null) return;

@@ -63,7 +63,7 @@ const List<MockLocation> mockLocations = [
 class AppUser {
   final String id;
   final String nickname;
-  final String decade; // 例: '20代'
+  final String decade; // 例: '20代'。ビジネスユーザーは '経営者'
   final String gender; // 'male' | 'female' | 'undisclosed'
   final String iconCategoryId; // 趣味アイコン（顔画像は禁止）
   final String? iconImagePath; // 端末内に保存した投稿アイコン画像（あれば優先表示）
@@ -71,6 +71,9 @@ class AppUser {
   final String bio;
   final double lat;
   final double lng;
+  final String? websiteUrl; // 公開URL（例: 店のホームページ）
+  final String? snsNote; // SNS（例: 'X: @meshitomo_official / IG: meshitomo'）
+  final String? phone; // ビジネスユーザー（店舗）の電話番号。タップで発信
 
   const AppUser({
     required this.id,
@@ -83,6 +86,9 @@ class AppUser {
     required this.lat,
     required this.lng,
     this.iconImagePath,
+    this.websiteUrl,
+    this.snsNote,
+    this.phone,
   });
 
   String get genderLabel => const {'male': '男性', 'female': '女性'}.containsKey(gender)
@@ -90,9 +96,28 @@ class AppUser {
       : '非公開';
 
   bool get isBusiness => false;
+
+  /// 位置だけ変えたコピーを返す
+  AppUser withPosition(double newLat, double newLng) {
+    return AppUser(
+      id: id,
+      nickname: nickname,
+      decade: decade,
+      gender: gender,
+      iconCategoryId: iconCategoryId,
+      interestIds: interestIds,
+      bio: bio,
+      lat: newLat,
+      lng: newLng,
+      iconImagePath: iconImagePath,
+      websiteUrl: websiteUrl,
+      snsNote: snsNote,
+      phone: phone,
+    );
+  }
 }
 
-/// ビジネスユーザー（v1.5 の完成形に向けたプレビュー。店舗情報を持つ）
+/// ビジネスユーザー（店舗。一般ユーザー登録と分離された登録フローで作られる）
 class BusinessUser extends AppUser {
   final String storeType; // 例: '居酒屋'
 
@@ -107,10 +132,34 @@ class BusinessUser extends AppUser {
     required super.lat,
     required super.lng,
     required this.storeType,
+    super.iconImagePath,
+    super.websiteUrl,
+    super.snsNote,
+    super.phone,
   });
 
   @override
   bool get isBusiness => true;
+
+  @override
+  AppUser withPosition(double newLat, double newLng) {
+    return BusinessUser(
+      id: id,
+      nickname: nickname,
+      decade: decade,
+      gender: gender,
+      iconCategoryId: iconCategoryId,
+      interestIds: interestIds,
+      bio: bio,
+      lat: newLat,
+      lng: newLng,
+      storeType: storeType,
+      iconImagePath: iconImagePath,
+      websiteUrl: websiteUrl,
+      snsNote: snsNote,
+      phone: phone,
+    );
+  }
 }
 
 enum RecStatus { active, fulfilled, expired, cancelled }
