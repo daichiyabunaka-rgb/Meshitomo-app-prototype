@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
 import '../services/app_state.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 import 'invite_sheet.dart';
 import 'widgets.dart';
 import 'profile_setup_screen.dart';
@@ -195,6 +195,36 @@ class MyPage extends StatelessWidget {
                         subtitle: Text(appState.gpsAvailable
                             ? 'GPS取得済み（距離は粗いバンド表示のみ）'
                             : '未取得（フォールバックの中心地で表示）'),
+                        trailing: TextButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('更新'),
+                          onPressed: () async {
+                            final gps =
+                                await locationService.currentPosition();
+                            if (gps == null) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        '位置情報を取得できませんでした。'
+                                        '端末の位置情報設定をご確認ください'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+                            appState.applyGps(gps.$1, gps.$2);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('現在地を更新しました'),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
+                        ),
                       ),
                       SwitchListTile(
                         secondary: const Icon(Icons.notifications),
@@ -218,6 +248,18 @@ class MyPage extends StatelessWidget {
                     },
                   ),
                 ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.delete_forever_outlined),
+                    label: const Text('アカウントを削除'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                    ),
+                    onPressed: () => _confirmDeleteAccount(context),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.all(8),
@@ -236,6 +278,47 @@ class MyPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// アカウント削除（2段階確認つき）。Supabase モードは
+  /// delete_my_account() で自分の行と auth ユーザーを完全に消す。
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('アカウントを削除しますか？'),
+        content: const Text(
+            'アカウント・プロフィール・募集・コミュニティ参加・メッセージが'
+            'すべて削除され、元に戻せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await authService.deleteAccount();
+      appState.detach();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('削除に失敗しました。通信状況をご確認ください'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Widget _statCard(BuildContext context, String value, String label) {

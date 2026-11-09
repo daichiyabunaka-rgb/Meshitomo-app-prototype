@@ -204,6 +204,30 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// アカウント削除（profiles・募集・コミュニティ・部屋・auth ユーザーを含む）。
+  /// Supabase モードは delete_my_account() を呼ぶ（適用済みマイグレーション）。
+  Future<void> deleteAccount() async {
+    if (useSupabase) {
+      await _client.rpc('delete_my_account');
+      _profileCache.clear();
+      try {
+        await _client.auth.signOut();
+      } catch (_) {
+        // 削除後のセッション無効化は best-effort
+      }
+      notifyListeners();
+      return;
+    }
+    // モック: 端末から自分のアカウントを消す
+    final email = _sessionEmail;
+    if (email != null) {
+      _accounts.remove(email);
+      _sessionEmail = null;
+      _persistMock();
+    }
+    notifyListeners();
+  }
+
   // ------------------------------------------------------------ profile
 
   /// セッション中のユーザーを AppUser に変換して返す
@@ -215,6 +239,23 @@ class AuthService extends ChangeNotifier {
       final user = _client.auth.currentUser;
       if (user == null) return null;
       await _loadProfileCache();
+      // 自己修復: profiles 行が無い古いアカウント（確認メール時代の登録で
+      // プロフィール作成が漏れたもの）は最小限の行を自動作成する。
+      // これが無いと recruitments / communities の外部キー違反で
+      // 募集・コミュニティ作成が失敗する。
+      if (_profileCache.isEmpty) {
+        await _client.from('profiles').upsert({
+          'id': user.id,
+          'nickname': '名無し',
+          'birth_decade': '非公開',
+          'gender': 'undisclosed',
+          'role': 'general',
+          'icon_category_id': 'ramen',
+          'interest_ids': const <String>[],
+          'bio': '',
+        });
+        await _loadProfileCache();
+      }
       final role = (_profileCache['role'] as String?) ?? 'general';
       final base = {
         'id': user.id,

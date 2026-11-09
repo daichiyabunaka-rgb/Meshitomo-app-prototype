@@ -28,18 +28,20 @@ enum NearTab { recruit, people, business }
 class _NearPageState extends State<NearPage> {
   Timer? _ticker;
   NearTab _tab = NearTab.recruit;
+  final TextEditingController _storeSearch = TextEditingController();
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _storeSearch.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     _ticker = Timer.periodic(
         const Duration(seconds: 20), (_) => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
   }
 
   @override
@@ -212,13 +214,68 @@ class _NearPageState extends State<NearPage> {
   Widget _businessList(BuildContext context) {
     final stores = appState.businessUsers
       ..sort((a, b) => _km(a).compareTo(_km(b)));
+    final keyword = _storeSearch.text.trim().toLowerCase();
+    final filtered = keyword.isEmpty
+        ? stores
+        : stores
+            .where((s) =>
+                s.nickname.toLowerCase().contains(keyword) ||
+                s.storeType.toLowerCase().contains(keyword) ||
+                s.bio.toLowerCase().contains(keyword))
+            .toList();
     if (stores.isEmpty) {
-      return const Center(child: Text('近くにビジネスユーザーがいません'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('まだ近くに店が登録されていません'),
+              const SizedBox(height: 8),
+              Text(
+                'ビジネスユーザーとして会員登録すると、あなたのお店をここに'
+                '出せます（ベータ期間中は無料です）。友人のお店を「招待・紹介」で'
+                '呼ぶのもおすすめです。',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      );
     }
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: TextField(
+            controller: _storeSearch,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: '店を探す（店名・業態・雰囲気で検索）',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              suffixIcon: keyword.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _storeSearch.clear();
+                        setState(() {});
+                      },
+                    ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -233,39 +290,43 @@ class _NearPageState extends State<NearPage> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: stores.length,
-            itemBuilder: (context, i) {
-              final s = stores[i];
-              return Card(
-                child: ListTile(
-                  leading: userAvatar(s.id, size: 48),
-                  title: Text(s.nickname,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                    '${s.storeType} / ${appState.userDistanceLabel(s)}',
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border:
-                          Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Text(
-                      'お店',
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.orange.shade900),
-                    ),
-                  ),
-                  onTap: () => showStoreSheet(context, s),
+          child: filtered.isEmpty
+              ? const Center(child: Text('検索に一致する店がありません'))
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) {
+                    final s = filtered[i];
+                    return Card(
+                      child: ListTile(
+                        leading: userAvatar(s.id, size: 48),
+                        title: Text(s.nickname,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          '${s.storeType} / ${appState.userDistanceLabel(s)}',
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: Colors.orange.shade200),
+                          ),
+                          child: Text(
+                            'お店',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.orange.shade900),
+                          ),
+                        ),
+                        onTap: () => showStoreSheet(context, s),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );

@@ -483,8 +483,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           .copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(
-                      '自分の趣味に合ったカテゴリを自由に作れます'
-                      '（作ったカテゴリは全ユーザーで共有されます）',
+                      '飲食に関するカテゴリを自由に追加できます'
+                      '（追加したカテゴリは全ユーザーで共有されます）',
                       style: Theme.of(sheetContext).textTheme.bodySmall),
                   const SizedBox(height: 16),
                   TextField(

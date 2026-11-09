@@ -42,24 +42,26 @@ const List<InterestCategory> interestCategories = [
   InterestCategory('brunch', '朝食・ブランチ', Icons.brunch_dining),
 ];
 
-/// カスタムカテゴリのアイコン候補（名前でDB保存するため定数マップ）
+/// カスタムカテゴリのアイコン候補（名前でDB保存するため定数マップ）。
+/// 本アプリは飲食に特化するため、アイコンも飲食系のみとする
+/// （その他の趣味は別アプリで展開する方針）。
 const Map<String, IconData> categoryIconChoices = {
   'restaurant': Icons.restaurant,
   'ramen': Icons.ramen_dining,
   'coffee': Icons.local_cafe,
   'bar': Icons.local_bar,
-  'sports': Icons.sports_soccer,
-  'music': Icons.music_note,
-  'game': Icons.sports_esports,
-  'pet': Icons.pets,
-  'car': Icons.directions_car,
-  'bike': Icons.motorcycle,
-  'travel': Icons.flight,
-  'book': Icons.menu_book,
-  'nature': Icons.park,
-  'camera': Icons.photo_camera,
-  'music_live': Icons.festival,
-  'sea': Icons.pool,
+  'wine': Icons.wine_bar,
+  'beer': Icons.sports_bar,
+  'liquor': Icons.liquor,
+  'bakery': Icons.bakery_dining,
+  'seafood': Icons.set_meal,
+  'fastfood': Icons.fastfood,
+  'sweets': Icons.icecream,
+  'pizza': Icons.local_pizza,
+  'burger': Icons.lunch_dining,
+  'dinner': Icons.dinner_dining,
+  'brunch': Icons.brunch_dining,
+  'takeout': Icons.takeout_dining,
 };
 
 /// アイコン名から IconData を引く（未登録の名前はデフォルトを返す）
