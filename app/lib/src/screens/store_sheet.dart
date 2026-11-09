@@ -191,8 +191,10 @@ Future<void> showStoreSheet(BuildContext context, BusinessUser store) {
             ),
             const SizedBox(height: 8),
             Text(
-              'AI接客はビジネスユーザー向けの有料機能（デモ）。'
-              '本開発では LLM を接続し、来店前の質問対応・営業文の作成支援を提供します。',
+              'AI接客はビジネスユーザー向けの機能です。'
+              'ベータ期間中は無料でご利用いただけます。'
+              '本リリース後は LLM による来店前の質問対応・営業文の作成支援を'
+              'ビジネスプラン（有料）として提供します。',
               style: Theme.of(sheetContext).textTheme.bodySmall,
             ),
           ],

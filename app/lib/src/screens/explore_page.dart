@@ -102,10 +102,10 @@ class _ExplorePageState extends State<ExplorePage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'ビジネスユーザー（飲食店）が店舗を登録し、'
-                          'AI接客・地図連携（マップ表示・Googleマップで開く）を'
-                          '有料で利用できるようになります。\n'
-                          '一般ユーザーは無料で利用できます。',
+                          'ビジネスユーザー（飲食店）が店舗を登録し、AI接客・'
+                          '地図連携（マップ表示・Googleマップで開く）を利用できます。'
+                          'ベータ期間中は無料。本リリース後は有料プランになります。\n'
+                          '一般ユーザーは引き続き無料です。',
                           style: theme.textTheme.bodySmall,
                         ),
                       ],

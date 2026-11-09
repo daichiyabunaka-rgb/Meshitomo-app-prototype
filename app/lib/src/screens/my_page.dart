@@ -173,7 +173,7 @@ class MyPage extends StatelessWidget {
                   child: ListTile(
                     leading: Icon(Icons.people_alt_outlined,
                         color: theme.colorScheme.primary),
-                    title: const Text('友達を招待する'),
+                    title: Text(me.isBusiness ? '招待・紹介する' : '友達を招待する'),
                     subtitle: const Text('SNSで「一緒に使いませんか？」を送る'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => showInviteSheet(context),

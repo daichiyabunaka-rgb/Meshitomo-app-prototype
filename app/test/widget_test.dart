@@ -62,6 +62,14 @@ void main() {
       expect(t, contains('神田駅'));
       expect(t, contains(kAppUrl));
     });
+
+    test('同業者向けの紹介文に店舗名と業態と無料表記が入る', () {
+      final t = businessInviteText('居酒屋 のれん', '居酒屋');
+      expect(t, contains('居酒屋 のれん'));
+      expect(t, contains('居酒屋'));
+      expect(t, contains('無料'));
+      expect(t, contains(kAppUrl));
+    });
   });
 
   group('AuthService（モック認証）', () {

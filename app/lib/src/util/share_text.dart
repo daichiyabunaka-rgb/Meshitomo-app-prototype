@@ -19,3 +19,13 @@ String recruitmentShareText(String title, String meetup) {
       '「$title」（集合: $meetup）\n'
       '$kAppUrl';
 }
+
+/// ビジネスユーザーが他のビジネスユーザー（同業の店舗経営者）に送る紹介・招待文。
+/// ビジネスユーザー同士のつながり（同業者との情報交換）を生むための共有。
+String businessInviteText(String myStoreName, String myStoreType) {
+  return '近くの飯とも候補と直接つながれるアプリ「飯とも！」を'
+      '使いませんか？\n'
+      '$myStoreType「$myStoreName」も参加しています。\n'
+      '一般ユーザーもビジネスユーザーも、ベータ期間中は無料でご利用いただけます。\n'
+      '$kAppUrl';
+}

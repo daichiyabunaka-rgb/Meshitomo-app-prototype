@@ -73,7 +73,7 @@ class _AiConciergeScreenState extends State<AiConciergeScreen> {
             Text(store.nickname,
                 style:
                     theme.textTheme.titleSmall!.copyWith(fontWeight: FontWeight.bold)),
-            Text('AI接客（プレミアムプラン / デモ）',
+            Text('AI接客（ベータ期間中は無料）',
                 style: theme.textTheme.labelSmall),
           ],
         ),
