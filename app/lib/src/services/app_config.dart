@@ -6,6 +6,12 @@
 /// publishable key は公開鍵（RLS で保護される）なのでアプリに埋め込めるが、
 /// サービスロールキー（sb_secret_...）は絶対に渡さないこと。
 class AppConfig {
+  /// 共有Supabaseプロジェクト内でこのアプリを識別するID。
+  /// 犬とも！・釣りとも！・ニーアキャットと同一プロジェクト・同一アカウント
+  /// （auth.users）を共有し、プロフィール・募集・コミュニティ等のデータは
+  /// この app_id で分離する（tomotsuku-memo の schema/migrations 参照）。
+  static const String appId = 'meshitomo';
+
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const String supabasePublishableKey =
       String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');

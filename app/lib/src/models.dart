@@ -16,6 +16,16 @@ const List<Genre> genres = [
 
 Genre genreById(String id) => genres.firstWhere((g) => g.id == id);
 
+/// ともつく！シリーズ（趣味特化型マッチングアプリ群）の共通定義。
+/// 全シリーズで同一のSupabaseプロジェクト・アカウントを共有し、
+/// この app_id で各アプリのデータを識別する。
+const Map<String, String> tomoTskuAppNames = {
+  'meshitomo': '飯とも！',
+  'inutomo': '犬とも！',
+  'tsuritomo': '釣りとも！',
+  'nekotomo': 'ニーアキャット',
+};
+
 /// 興味カテゴリ。
 /// `interestCategories` は初期セット（デフォルト）。ユーザーは自由に
 /// カテゴリを追加でき（AppState.categoryRegistry）、Supabase モードでは
@@ -100,6 +110,8 @@ class AppUser {
   final String? websiteUrl; // 公開URL（例: 店のホームページ）
   final String? snsNote; // SNS（例: 'X: @meshitomo_official / IG: meshitomo'）
   final String? phone; // ビジネスユーザー（店舗）の電話番号。タップで発信
+  final String? appSource; // このプロフィール行の由来アプリ（自分のアプリなら null）
+  final bool crossAppVisible; // ともつく！全体に表示する設定（この行の値）
 
   const AppUser({
     required this.id,
@@ -115,6 +127,8 @@ class AppUser {
     this.websiteUrl,
     this.snsNote,
     this.phone,
+    this.appSource,
+    this.crossAppVisible = false,
   });
 
   String get genderLabel => const {'male': '男性', 'female': '女性'}.containsKey(gender)
@@ -122,6 +136,13 @@ class AppUser {
       : '非公開';
 
   bool get isBusiness => false;
+
+  /// 他のともつく！アプリ由来のプロフィール行か
+  bool get isOtherApp => appSource != null;
+
+  /// 由来アプリの表示名（例: '犬とも！'）
+  String get appSourceLabel =>
+      isOtherApp ? (tomoTskuAppNames[appSource] ?? appSource!) : '';
 
   /// 位置だけ変えたコピーを返す
   AppUser withPosition(double newLat, double newLng) {
@@ -139,6 +160,8 @@ class AppUser {
       websiteUrl: websiteUrl,
       snsNote: snsNote,
       phone: phone,
+      appSource: appSource,
+      crossAppVisible: crossAppVisible,
     );
   }
 }
@@ -162,6 +185,8 @@ class BusinessUser extends AppUser {
     super.websiteUrl,
     super.snsNote,
     super.phone,
+    super.appSource,
+    super.crossAppVisible,
   });
 
   @override
@@ -184,6 +209,8 @@ class BusinessUser extends AppUser {
       websiteUrl: websiteUrl,
       snsNote: snsNote,
       phone: phone,
+      appSource: appSource,
+      crossAppVisible: crossAppVisible,
     );
   }
 }

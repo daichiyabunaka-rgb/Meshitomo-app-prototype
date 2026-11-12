@@ -246,6 +246,7 @@ class AuthService extends ChangeNotifier {
       if (_profileCache.isEmpty) {
         await _client.from('profiles').upsert({
           'id': user.id,
+          'app_id': AppConfig.appId,
           'nickname': '名無し',
           'birth_decade': '非公開',
           'gender': 'undisclosed',
@@ -415,8 +416,14 @@ class AuthService extends ChangeNotifier {
   Future<void> _loadProfileCache() async {
     final user = _client.auth.currentUser;
     if (user == null) return;
-    final rows =
-        await _client.from('profiles').select().eq('id', user.id).limit(1);
+    // 共有プロジェクトでは「ユーザー × アプリ」の複数行構成のため、
+    // このアプリの行だけを対象にする
+    final rows = await _client
+        .from('profiles')
+        .select()
+        .eq('id', user.id)
+        .eq('app_id', AppConfig.appId)
+        .limit(1);
     final list = rows as List;
     if (list.isNotEmpty) {
       _profileCache
@@ -445,6 +452,7 @@ class AuthService extends ChangeNotifier {
     final data = {
       // 登録時のみ入力し、更新時は渡された項目だけを書き換える
       if (!onlyUpdate) 'id': user.id,
+      if (!onlyUpdate) 'app_id': AppConfig.appId,
       if (!onlyUpdate && role != null) 'role': role,
       'nickname': ?nickname,
       'birth_decade': ?decade,
@@ -460,7 +468,11 @@ class AuthService extends ChangeNotifier {
     };
     if (data.isEmpty) return;
     if (onlyUpdate) {
-      await _client.from('profiles').update(data).eq('id', user.id);
+      await _client
+          .from('profiles')
+          .update(data)
+          .eq('id', user.id)
+          .eq('app_id', AppConfig.appId);
     } else {
       await _client.from('profiles').upsert(data);
     }
