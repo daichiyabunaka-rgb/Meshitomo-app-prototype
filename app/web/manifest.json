@@ -1,11 +1,11 @@
 {
-    "name": "meshitomo",
-    "short_name": "meshitomo",
+    "name": "飯とも！",
+    "short_name": "飯とも！",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "美食好き同士でつながる、近くの飯とも探しアプリ（プロトタイプ）",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
