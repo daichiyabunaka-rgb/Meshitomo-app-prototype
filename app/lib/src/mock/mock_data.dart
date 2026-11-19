@@ -299,6 +299,72 @@ const List<String> mockReplies = [
   'このお店ずっと気になっていました。',
 ];
 
+/// ---------- 近況報告のシード（anchor＝現在地からの相対距離で配置） ----------
+
+List<MealReport> buildSeedMealReports(
+    DateTime now, double anchorLat, double anchorLng) {
+  MealReport make({
+    required String id,
+    required String posterId,
+    required String kind,
+    required String itemDescription,
+    required String areaName,
+    required String detail,
+    required double northKm,
+    required double eastKm,
+    required Duration age,
+  }) {
+    final cos = (anchorLat * math.pi / 180.0).abs().clamp(0.01, 1.0);
+    return MealReport(
+      id: id,
+      posterId: posterId,
+      kind: kind,
+      itemDescription: itemDescription,
+      areaName: areaName,
+      detail: detail,
+      lat: anchorLat + northKm / _kmPerDegLat,
+      lng: anchorLng + eastKm / (_kmPerDegLat * cos),
+      createdAt: now.subtract(age),
+    );
+  }
+
+  return [
+    make(
+      id: 'mr-seed-1',
+      posterId: 'u-ramen-ken',
+      kind: 'shoot',
+      itemDescription: '二郎系の極太麺を撮影しました',
+      areaName: '駅の北口',
+      detail: 'ニンニク増しで挑みました。一緒に行ける飯ともを募集しています。',
+      northKm: 0.3,
+      eastKm: -0.6,
+      age: const Duration(hours: 2),
+    ),
+    make(
+      id: 'mr-seed-2',
+      posterId: 'u-cafe-yam',
+      kind: 'post',
+      itemDescription: '今週末は新規開拓のパンケーキの予定です',
+      areaName: '中央口',
+      detail: '行列のできる店に行ってみます。おすすめのカフェがあったら教えてください。',
+      northKm: -0.2,
+      eastKm: 0.8,
+      age: const Duration(hours: 5),
+    ),
+    make(
+      id: 'mr-seed-3',
+      posterId: 'u-yakiniku-mi',
+      kind: 'event',
+      itemDescription: '焼肉オフ会を開催しました',
+      areaName: '北口改札',
+      detail: 'ハラミとレバーを囲んで大盛り上がり。次回も開催予定です。',
+      northKm: -0.9,
+      eastKm: -0.3,
+      age: const Duration(hours: 26),
+    ),
+  ];
+}
+
 /// モックの応募メッセージ
 const List<String> mockApplyMessages = [
   '参加したいです！ひとり飯が多かったので嬉しいです。',

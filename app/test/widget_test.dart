@@ -404,6 +404,45 @@ void main() {
       expect(dup, isNull);
       expect(state.categories.length, before + 1);
     });
+
+    test('近況報告: シードは近い順に並び、撮影・つぶやき・イベントを含む', () {
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      final reports = state.mealReports;
+      expect(reports, isNotEmpty);
+      expect(reports.any((p) => p.isShoot), isTrue);
+      expect(reports.any((p) => p.isPost), isTrue);
+      expect(reports.any((p) => p.isEvent), isTrue);
+      final me = state.me!;
+      double km(MealReport p) => haversineKm(me.lat, me.lng, p.lat, p.lng);
+      for (var i = 1; i < reports.length; i++) {
+        expect(km(reports[i - 1]), lessThanOrEqualTo(km(reports[i])));
+      }
+      for (final p in reports) {
+        // 相対配置されているので全シードが現在地の近くにある
+        expect(km(p), lessThan(6.0));
+        expect(state.mealReportDistanceLabel(p), isNotEmpty);
+      }
+    });
+
+    test('近況報告: 登録して一覧に出し、完了で消える', () async {
+      final state = AppState();
+      state.attachUser(_testUser(state), reseed: true);
+      final created = await state.registerMealReport(
+        kind: 'post',
+        itemDescription: 'テストつぶやき',
+        areaName: 'テスト駅北口',
+        detail: 'ごはんの近況です',
+        photoPath: '/data/meal_photos/meal_report_1.jpg',
+      );
+      expect(created.isPost, isTrue);
+      expect(created.photoPath, '/data/meal_photos/meal_report_1.jpg');
+      expect(
+          state.mealReports.any((p) => p.id == created.id), isTrue);
+      await state.closeMealReport(created.id);
+      expect(
+          state.mealReports.any((p) => p.id == created.id), isFalse);
+    });
   });
 
   group('models', () {

@@ -780,4 +780,73 @@ extension CommunityData on SupabaseData {
         .eq('event_id', eventId)
         .eq('user_id', _myId);
   }
+
+  // ------------------------------------------------------ meal reports
+
+  MealReport _rowToMealReport(Map<String, dynamic> row) {
+    final gh = row['location_geohash'] as String?;
+    final (lat, lng) =
+        gh == null ? (0.0, 0.0) : geohashDecode(gh);
+    return MealReport(
+      id: row['id'] as String,
+      posterId: row['poster_id'] as String,
+      kind: row['kind'] as String,
+      itemDescription: row['item_description'] as String,
+      areaName: row['area_name'] as String,
+      detail: (row['detail'] as String?) ?? '',
+      photoPath: row['photo_path'] as String?,
+      lat: lat,
+      lng: lng,
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
+      closed: (row['closed'] as bool?) ?? false,
+    );
+  }
+
+  /// 近くの近況報告（geohash 先頭4桁一致 = 約20km四方）
+  Future<List<MealReport>> fetchMealReports(AppUser me) async {
+    final rows = await _c
+        .from('meal_reports')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(100);
+    final myPrefix = geohashEncode(me.lat, me.lng, precision: 4);
+    final reports = <MealReport>[];
+    for (final row in (rows as List).cast<Map<String, dynamic>>()) {
+      try {
+        final gh = row['location_geohash'] as String?;
+        if (gh == null || !gh.startsWith(myPrefix)) continue;
+        reports.add(_rowToMealReport(row));
+      } catch (_) {
+        // 壊れた行は読み飛ばす
+      }
+    }
+    return reports;
+  }
+
+  /// 近況報告を登録する
+  Future<MealReport> createMealReport({
+    required String kind,
+    required String itemDescription,
+    required String areaName,
+    required String detail,
+    required double lat,
+    required double lng,
+    String? photoPath,
+  }) async {
+    final rows = await _c.from('meal_reports').insert({
+      'poster_id': _myId,
+      'kind': kind,
+      'item_description': itemDescription,
+      'area_name': areaName,
+      'detail': detail,
+      'photo_path': photoPath,
+      'location_geohash': geohashEncode(lat, lng, precision: 6),
+    }).select();
+    return _rowToMealReport((rows as List).first as Map<String, dynamic>);
+  }
+
+  /// 近況報告を閉じる（本人のみ、RLSで担保）
+  Future<void> closeMealReport(String id) async {
+    await _c.from('meal_reports').update({'closed': true}).eq('id', id);
+  }
 }

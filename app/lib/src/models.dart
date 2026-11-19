@@ -406,3 +406,39 @@ class ChatMessage {
     this.isSystem = false,
   });
 }
+
+/// 近況報告（2026-11-18追加）
+/// 「撮影」「つぶやき」「イベント」を近隣で共有する。
+class MealReport {
+  final String id;
+  final String posterId;
+  final String kind; // 'shoot' | 'post' | 'event'
+  final String itemDescription; // タイトル（料理・できごとなど）
+  final String areaName; // 場所（お店・エリア名など）
+  final String detail; // 近況・ハイライトの自由記述
+  final String? photoPath; // 投稿写真（端末内パス or 公開URL）
+  final double lat;
+  final double lng;
+  final DateTime createdAt;
+  bool closed; // 完了（一覧から非表示にした）
+
+  MealReport({
+    required this.id,
+    required this.posterId,
+    required this.kind,
+    required this.itemDescription,
+    required this.areaName,
+    required this.detail,
+    required this.lat,
+    required this.lng,
+    required this.createdAt,
+    this.photoPath,
+    this.closed = false,
+  });
+
+  bool get isShoot => kind == 'shoot';
+
+  bool get isPost => kind == 'post';
+
+  bool get isEvent => kind == 'event';
+}

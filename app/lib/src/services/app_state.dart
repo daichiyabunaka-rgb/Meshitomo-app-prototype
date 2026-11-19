@@ -199,6 +199,7 @@ class AppState extends ChangeNotifier {
     anchorLat = lat;
     anchorLng = lng;
     _rebuildMockUsers();
+    _replaceMockMealReports();
     if (me != null) {
       me = me!.withPosition(lat, lng);
       _users[me!.id] = me!;
@@ -228,6 +229,7 @@ class AppState extends ChangeNotifier {
           .toList()));
       _seeded = true;
       _seedMockCommunities();
+      _seedMockMealReports();
     }
     notifyListeners();
   }
@@ -316,6 +318,21 @@ class AppState extends ChangeNotifier {
             if (member != null) _users[memberId] = member;
           } catch (_) {
             // 補完失敗は無視（次の更新で再試行）
+          }
+        }
+      }
+      // 近況報告
+      final reports = await supabaseData.fetchMealReports(me!);
+      _mealReports
+        ..clear()
+        ..addAll(reports);
+      for (final d in reports) {
+        if (!_users.containsKey(d.posterId)) {
+          try {
+            final reporter = await supabaseData.fetchAnyProfileById(d.posterId);
+            if (reporter != null) _users[d.posterId] = reporter;
+          } catch (_) {
+            // 無視
           }
         }
       }
@@ -1050,6 +1067,108 @@ class AppState extends ChangeNotifier {
     _rooms.insert(0, room);
     _messages[room.id] = [];
     return room;
+  }
+
+  // ------------------------------------------------------- meal reports
+
+  final List<MealReport> _mealReports = [];
+
+  /// 完了済みの投稿を除いた近況報告の一覧（距離近い順）
+  List<MealReport> get mealReports {
+    if (me == null) return const [];
+    return _mealReports
+        .where((p) => !p.closed)
+        .toList()
+      ..sort((a, b) =>
+          _mealReportDistance(a).compareTo(_mealReportDistance(b)));
+  }
+
+  double _mealReportDistance(MealReport p) {
+    if (me == null) return double.infinity;
+    return haversineKm(me!.lat, me!.lng, p.lat, p.lng);
+  }
+
+  /// 登録までの粗い距離バンド
+  String mealReportDistanceLabel(MealReport p) {
+    final km = _mealReportDistance(p);
+    return km.isFinite ? distanceLabel(km) : '';
+  }
+
+  /// 近況報告（shoot / post / event）を登録する
+  Future<MealReport> registerMealReport({
+    required String kind,
+    required String itemDescription,
+    required String areaName,
+    required String detail,
+    String? photoPath,
+  }) async {
+    if (_remote) {
+      // アップロード失敗で端末内パス（http で始まらない）が返ってきた場合、
+      // 他の端末から見えないため photoPath として保存しない
+      final effectivePhoto = (photoPath != null &&
+              photoPath.isNotEmpty &&
+              photoPath.startsWith('http'))
+          ? photoPath
+          : null;
+      final created = await supabaseData.createMealReport(
+        kind: kind,
+        itemDescription: itemDescription,
+        areaName: areaName,
+        detail: detail,
+        photoPath: effectivePhoto,
+        lat: me!.lat,
+        lng: me!.lng,
+      );
+      _mealReports.insert(0, created);
+      notifyListeners();
+      return created;
+    }
+    final item = MealReport(
+      id: 'mr-${_seq++}',
+      posterId: me!.id,
+      kind: kind,
+      itemDescription: itemDescription,
+      areaName: areaName,
+      detail: detail,
+      photoPath: photoPath,
+      lat: me!.lat,
+      lng: me!.lng,
+      createdAt: _now(),
+    );
+    _mealReports.insert(0, item);
+    notifyListeners();
+    return item;
+  }
+
+  /// 報告を完了にする（一覧から外す）
+  Future<void> closeMealReport(String id) async {
+    for (final p in _mealReports) {
+      if (p.id == id) {
+        p.closed = true;
+        break;
+      }
+    }
+    notifyListeners();
+    if (_remote) {
+      try {
+        await supabaseData.closeMealReport(id);
+      } catch (_) {
+        // 無視（再取得で同期される）
+      }
+    }
+  }
+
+  /// モック: シードの近況報告を現在地周囲に配置する
+  void _seedMockMealReports() {
+    if (_mealReports.any((p) => p.id.startsWith('mr-seed-'))) return;
+    _mealReports.addAll(buildSeedMealReports(_now(), anchorLat, anchorLng));
+  }
+
+  /// 実 GPS で現在地が変わったら、シードの投稿も作り直す（モックビルドのみ）
+  void _replaceMockMealReports() {
+    if (_remote) return;
+    _mealReports.removeWhere((p) => p.id.startsWith('mr-seed-'));
+    _mealReports.addAll(buildSeedMealReports(_now(), anchorLat, anchorLng));
   }
 
   // ------------------------------------------------------------ rooms / DM
